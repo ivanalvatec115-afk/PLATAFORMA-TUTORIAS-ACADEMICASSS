@@ -1,13 +1,13 @@
 """
 utils/auth.py
-Funciones de autenticación y gestión de sesión con Supabase Auth.
+Funciones de autenticacion y gestion de sesion con Supabase Auth.
 """
 import streamlit as st
 from utils.supabase_client import get_supabase
 
 
 def login(correo: str, password: str) -> dict | None:
-    """Intenta iniciar sesión. Retorna datos de sesión o None."""
+    """Intenta iniciar sesion. Retorna perfil o None."""
     sb = get_supabase()
     try:
         res = sb.auth.sign_in_with_password({"email": correo, "password": password})
@@ -15,10 +15,33 @@ def login(correo: str, password: str) -> dict | None:
             st.session_state["user"] = res.user
             st.session_state["session"] = res.session
             perfil = get_perfil(res.user.id)
+            if perfil is None:
+                # El perfil no existe todavia, crearlo manualmente
+                sb.table("perfiles").insert({
+                    "id": res.user.id,
+                    "nombre": res.user.user_metadata.get("nombre", "Usuario"),
+                    "apellido": res.user.user_metadata.get("apellido", ""),
+                    "correo": correo,
+                    "rol": res.user.user_metadata.get("rol", "alumno"),
+                }).execute()
+                perfil = get_perfil(res.user.id)
             st.session_state["perfil"] = perfil
             return perfil
+        else:
+            st.error("No se pudo iniciar sesion. Verifica tus credenciales.")
     except Exception as e:
-        st.error(f"Error al iniciar sesión: {e}")
+        msg = str(e)
+        if "Email not confirmed" in msg:
+            st.error("Debes confirmar tu correo antes de iniciar sesion. "
+                     "Revisa tu bandeja de entrada o desactiva la confirmacion "
+                     "en Supabase: Authentication → Settings → desactiva 'Enable email confirmations'.")
+        elif "Invalid login credentials" in msg:
+            st.error("Correo o contrasena incorrectos.")
+        elif "Failed to fetch" in msg or "connection" in msg.lower():
+            st.error("No se pudo conectar a la base de datos. "
+                     "Verifica que SUPABASE_URL y SUPABASE_ANON_KEY sean correctos en supabase_client.py.")
+        else:
+            st.error(f"Error al iniciar sesion: {msg}")
     return None
 
 
@@ -39,20 +62,28 @@ def register(nombre: str, apellido: str, correo: str, password: str,
             }
         })
         if res.user:
-            # El trigger handle_new_user crea el perfil base;
-            # actualizamos los campos extra
-            sb.table("perfiles").update({
-                "numero_control": numero_control,
-                "departamento": departamento,
-            }).eq("id", res.user.id).execute()
+            # Intentar actualizar campos extra si el trigger ya creo el perfil
+            try:
+                sb.table("perfiles").update({
+                    "numero_control": numero_control,
+                    "departamento": departamento,
+                }).eq("id", res.user.id).execute()
+            except Exception:
+                pass
             return True
+        else:
+            st.error("No se pudo crear la cuenta. El correo puede estar en uso.")
     except Exception as e:
-        st.error(f"Error al registrar: {e}")
+        msg = str(e)
+        if "already registered" in msg or "already exists" in msg:
+            st.error("Este correo ya esta registrado.")
+        else:
+            st.error(f"Error al registrar: {msg}")
     return False
 
 
 def logout():
-    """Cierra la sesión actual."""
+    """Cierra la sesion actual."""
     sb = get_supabase()
     try:
         sb.auth.sign_out()
@@ -73,9 +104,9 @@ def get_perfil(user_id: str) -> dict | None:
 
 
 def require_auth():
-    """Verifica si hay sesión activa. Redirige al login si no."""
+    """Verifica si hay sesion activa. Detiene la pagina si no."""
     if "user" not in st.session_state or st.session_state["user"] is None:
-        st.warning("Debes iniciar sesión para acceder a esta sección.")
+        st.warning("Debes iniciar sesion para acceder a esta seccion.")
         st.stop()
 
 
