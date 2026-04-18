@@ -1,14 +1,14 @@
 """
-app.py  — Punto de entrada de TutorIA
-Plataforma de Tutorías Académicas · Instituto Tecnológico de Matehuala
+app.py — Punto de entrada de TutorIA
+Plataforma de Tutorias Academicas · Instituto Tecnologico de Matehuala
 """
 import streamlit as st
 from utils.styles import inject_css
 from utils.auth import login, register, logout, get_current_rol, get_current_perfil
+from utils.supabase_client import get_supabase, SUPABASE_URL
 
-# ── Configuración de página ──────────────────────────────
 st.set_page_config(
-    page_title="TutorIA · Tutorías Académicas",
+    page_title="TutorIA · Tutorias Academicas",
     page_icon="🎓",
     layout="wide",
     initial_sidebar_state="auto",
@@ -17,7 +17,6 @@ st.set_page_config(
 inject_css()
 
 
-# ── Redirección según rol ────────────────────────────────
 def redirect_by_role():
     rol = get_current_rol()
     if rol == "alumno":
@@ -28,11 +27,11 @@ def redirect_by_role():
         st.switch_page("pages/admin.py")
 
 
-# Si ya hay sesión activa, redirigir directamente
+# Si ya hay sesion activa, redirigir
 if "user" in st.session_state and st.session_state["user"]:
     redirect_by_role()
 
-# ── Pantalla de Login / Registro ─────────────────────────
+# ── Layout principal ─────────────────────────────────────
 col_brand, col_form = st.columns([1.3, 1], gap="large")
 
 with col_brand:
@@ -41,18 +40,31 @@ with col_brand:
         <div style="font-size:3rem; margin-bottom:1rem;">🎓</div>
         <h1>TutorIA</h1>
         <p>Plataforma centralizada para gestionar disponibilidad, agendar sesiones
-        y dar seguimiento académico a las tutorías institucionales.</p>
+        y dar seguimiento academico a las tutorias institucionales.</p>
         <div class="feature">✅ Trazabilidad de requisitos</div>
         <div class="feature">📅 Calendario interactivo</div>
-        <div class="feature">📊 Reportes y estadísticas</div>
+        <div class="feature">📊 Reportes y estadisticas</div>
         <div class="feature">🔔 Control de asistencia</div>
         <br>
         <p style="opacity:0.6; font-size:0.78rem;">
-            Instituto Tecnológico de Matehuala<br>
-            Ingeniería en Sistemas Computacionales
+            Instituto Tecnologico de Matehuala<br>
+            Ingenieria en Sistemas Computacionales
         </p>
     </div>
     """, unsafe_allow_html=True)
+
+    # ── Diagnostico de conexion ──────────────────────────
+    with st.expander("🔌 Verificar conexión a Supabase"):
+        st.caption(f"URL configurada: `{SUPABASE_URL}`")
+        if st.button("Probar conexión", use_container_width=True):
+            try:
+                sb = get_supabase()
+                res = sb.table("perfiles").select("id").limit(1).execute()
+                st.success("✅ Conexión exitosa a Supabase.")
+            except Exception as e:
+                st.error(f"❌ Error de conexión: {e}")
+                st.info("Verifica que SUPABASE_URL y SUPABASE_ANON_KEY sean correctos "
+                        "en utils/supabase_client.py")
 
 with col_form:
     tab_login, tab_reg = st.tabs(["🔑 Iniciar sesión", "📝 Registrarse"])
@@ -60,8 +72,9 @@ with col_form:
     # ── TAB LOGIN ──
     with tab_login:
         st.markdown("#### Acceder a la plataforma")
-        correo = st.text_input("Correo institucional", placeholder="usuario@instituto.edu.mx",
-                               key="login_correo")
+        correo   = st.text_input("Correo institucional",
+                                 placeholder="usuario@itm.edu.mx",
+                                 key="login_correo")
         password = st.text_input("Contraseña", type="password", key="login_pass")
 
         if st.button("Ingresar →", type="primary", use_container_width=True):
@@ -73,8 +86,12 @@ with col_form:
                 if perfil:
                     st.success(f"¡Bienvenido/a, {perfil['nombre']}!")
                     st.rerun()
-                else:
-                    st.error("Correo o contraseña incorrectos.")
+
+        st.divider()
+        st.caption("**Usuarios de prueba:**")
+        st.caption("👤 `alejandro.morales@itm.edu.mx` / `Alumno2026!`")
+        st.caption("📚 `juan.robles@itm.edu.mx` / `Docente2026!`")
+        st.caption("⚙️ `admin@itm.edu.mx` / `Admin2026!`")
 
     # ── TAB REGISTRO ──
     with tab_reg:
@@ -82,8 +99,10 @@ with col_form:
         r_nombre   = st.text_input("Nombre(s)", key="reg_nombre")
         r_apellido = st.text_input("Apellidos", key="reg_apellido")
         r_correo   = st.text_input("Correo institucional", key="reg_correo")
-        r_pass     = st.text_input("Contraseña (mín. 6 caracteres)", type="password", key="reg_pass")
-        r_pass2    = st.text_input("Confirmar contraseña", type="password", key="reg_pass2")
+        r_pass     = st.text_input("Contraseña (mín. 6 caracteres)",
+                                   type="password", key="reg_pass")
+        r_pass2    = st.text_input("Confirmar contraseña",
+                                   type="password", key="reg_pass2")
         r_rol      = st.selectbox("Rol", ["alumno", "docente"], key="reg_rol")
 
         r_control = r_depto = None
@@ -104,6 +123,6 @@ with col_form:
                     ok = register(r_nombre, r_apellido, r_correo, r_pass,
                                   r_rol, r_control, r_depto)
                 if ok:
-                    st.success("¡Cuenta creada! Revisa tu correo para confirmar y luego inicia sesión.")
-                else:
-                    st.error("No se pudo crear la cuenta. El correo puede estar en uso.")
+                    st.success("¡Cuenta creada! Si tienes confirmación de correo "
+                               "activada en Supabase, revisa tu bandeja. "
+                               "Si no, ya puedes iniciar sesión.")
