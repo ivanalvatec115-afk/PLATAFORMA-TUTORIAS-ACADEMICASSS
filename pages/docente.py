@@ -27,17 +27,28 @@ perfil = get_current_perfil()
 render_sidebar()
 
 
+def parse_perfil_join(valor):
+    """Normaliza el join de perfiles que puede llegar como lista o dict."""
+    if isinstance(valor, list):
+        return valor[0] if valor else {}
+    if isinstance(valor, dict):
+        return valor
+    return {}
+
+
 def fmt_fecha(iso_str):
     try:
         return datetime.fromisoformat(iso_str.replace("Z", "+00:00")).strftime("%d/%m/%Y %H:%M")
     except Exception:
-        return iso_str or "—"
+        return iso_str
 
 
 # ── Header ───────────────────────────────────────────────
 st.markdown(f"""
 <div class="dash-header">
-    <div><h2>📚 Panel del Docente <span class="role-tag">Docente Tutor</span></h2></div>
+    <div>
+        <h2>📚 Panel del Docente <span class="role-tag">Docente Tutor</span></h2>
+    </div>
     <div style="color:#5b6e8c; font-size:0.85rem;">
         {perfil['nombre']} {perfil['apellido']} · {perfil.get('departamento','—')}
     </div>
@@ -122,9 +133,9 @@ with col_right:
             st.info("No tienes sesiones programadas.")
         else:
             for s in progs:
-                # alumno_nombre y alumno_control vienen resueltos desde db.py
-                nombre_alum = s.get("alumno_nombre", "").strip() or "Sin nombre"
-                ctrl        = s.get("alumno_control", "—")
+                alum        = parse_perfil_join(s.get("perfiles", {}))
+                nombre_alum = f"{alum.get('nombre','')} {alum.get('apellido','')}".strip() or "Alumno"
+                ctrl        = alum.get("numero_control", "—")
                 fh          = fmt_fecha(s["fecha_hora"])
                 st.markdown(f"""
                 <div class="avail-item">
@@ -144,8 +155,8 @@ with col_right:
         else:
             filas = ""
             for s in sesiones:
-                nombre_alum = s.get("alumno_nombre", "").strip() or "Sin nombre"
-                ctrl        = s.get("alumno_control", "—")
+                alum        = parse_perfil_join(s.get("perfiles", {}))
+                nombre_alum = f"{alum.get('nombre','')} {alum.get('apellido','')}".strip() or "Alumno"
                 fh          = fmt_fecha(s["fecha_hora"])
                 mat         = s.get("materia") or "—"
                 bdg         = estado_badge(s["estado"])
@@ -153,14 +164,13 @@ with col_right:
                 <tr>
                     <td>{fh}</td>
                     <td>{nombre_alum}</td>
-                    <td>{ctrl}</td>
                     <td>{mat}</td>
                     <td>{bdg}</td>
                 </tr>"""
             st.markdown(f"""
             <table class="hist-table">
                 <thead>
-                    <tr><th>Fecha</th><th>Alumno</th><th>Control</th><th>Materia</th><th>Estado</th></tr>
+                    <tr><th>Fecha</th><th>Alumno</th><th>Materia</th><th>Estado</th></tr>
                 </thead>
                 <tbody>{filas}</tbody>
             </table>""", unsafe_allow_html=True)
@@ -172,10 +182,10 @@ with col_right:
         else:
             opciones = {}
             for s in progs_asist:
-                nombre_alum = s.get("alumno_nombre", "").strip() or "Sin nombre"
-                ctrl        = s.get("alumno_control", "—")
+                alum        = parse_perfil_join(s.get("perfiles", {}))
+                nombre_alum = f"{alum.get('nombre','')} {alum.get('apellido','')}".strip() or "Alumno"
                 fh          = fmt_fecha(s["fecha_hora"])
-                label       = f"{nombre_alum} ({ctrl}) · {fh} · {s.get('materia','—')}"
+                label       = f"{nombre_alum} · {fh}"
                 opciones[label] = s
 
             sel_label = st.selectbox("Selecciona la sesión", list(opciones.keys()))
@@ -183,7 +193,8 @@ with col_right:
             asistio   = st.radio("¿El alumno asistió?",
                                  ["Sí, asistió", "No asistió"], horizontal=True)
             notas     = st.text_area("Notas de la sesión (opcional)",
-                                     placeholder="Observaciones, temas tratados…", height=90)
+                                     placeholder="Observaciones, temas tratados…",
+                                     height=90)
 
             if st.button("💾 Cerrar y guardar sesión", type="primary", use_container_width=True):
                 ok = registrar_asistencia(
