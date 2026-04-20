@@ -26,28 +26,17 @@ perfil = get_current_perfil()
 render_sidebar()
 
 
-def parse_perfil_join(valor):
-    """Supabase puede devolver el join como lista o dict, esta funcion normaliza ambos."""
-    if isinstance(valor, list):
-        return valor[0] if valor else {}
-    if isinstance(valor, dict):
-        return valor
-    return {}
-
-
 def fmt_fecha(iso_str):
     try:
         return datetime.fromisoformat(iso_str.replace("Z", "+00:00")).strftime("%d/%m/%Y %H:%M")
     except Exception:
-        return iso_str
+        return iso_str or "—"
 
 
 # ── Header ───────────────────────────────────────────────
 st.markdown(f"""
 <div class="dash-header">
-    <div>
-        <h2>🎓 Panel del Alumno <span class="role-tag">Alumno</span></h2>
-    </div>
+    <div><h2>🎓 Panel del Alumno <span class="role-tag">Alumno</span></h2></div>
     <div style="color:#5b6e8c; font-size:0.85rem;">
         {perfil['nombre']} {perfil['apellido']} · {perfil.get('numero_control','—')}
     </div>
@@ -72,20 +61,21 @@ st.markdown(f"""
 
 col_left, col_right = st.columns([1, 1.3], gap="large")
 
-# ── IZQUIERDA: Disponibilidad + Agendar ──────────────────
+# ── IZQUIERDA ────────────────────────────────────────────
 with col_left:
 
+    # Disponibilidad de tutores
     st.markdown("<div class='tutoria-card'><h3>📅 Disponibilidad de tutores</h3>", unsafe_allow_html=True)
     slots = get_disponibilidad_libre()
     if not slots:
         st.info("No hay horarios disponibles por el momento.")
     else:
         for s in slots:
-            doc        = parse_perfil_join(s.get("perfiles", {}))
-            nombre_doc = f"{doc.get('nombre','')} {doc.get('apellido','')}".strip() or "Docente"
-            fecha      = s["fecha"]
-            inicio     = s["hora_inicio"][:5]
-            fin        = s["hora_fin"][:5]
+            # docente_nombre viene resuelto directamente desde db.py
+            nombre_doc = s.get("docente_nombre", "").strip() or "Sin nombre"
+            fecha  = s["fecha"]
+            inicio = s["hora_inicio"][:5]
+            fin    = s["hora_fin"][:5]
             st.markdown(f"""
             <div class="avail-item">
                 <div>
@@ -99,7 +89,7 @@ with col_left:
 
     st.divider()
 
-    # Formulario agendar sesión
+    # Agendar sesión
     st.markdown("<div class='tutoria-card'><h3>➕ Agendar nueva sesión</h3>", unsafe_allow_html=True)
     slots_libres = get_disponibilidad_libre()
 
@@ -108,13 +98,12 @@ with col_left:
     else:
         opciones = {}
         for s in slots_libres:
-            doc        = parse_perfil_join(s.get("perfiles", {}))
-            nombre_doc = f"{doc.get('nombre','')} {doc.get('apellido','')}".strip() or "Docente"
-            label      = f"{nombre_doc}  ·  {s['fecha']}  {s['hora_inicio'][:5]}–{s['hora_fin'][:5]}"
+            nombre_doc = s.get("docente_nombre", "").strip() or "Sin nombre"
+            label = f"{nombre_doc}  ·  {s['fecha']}  {s['hora_inicio'][:5]}–{s['hora_fin'][:5]}"
             opciones[label] = s
 
-        sel_label = st.selectbox("Selecciona horario disponible", list(opciones.keys()))
-        sel_slot  = opciones[sel_label]
+        sel_label   = st.selectbox("Selecciona horario disponible", list(opciones.keys()))
+        sel_slot    = opciones[sel_label]
         materia     = st.text_input("Materia o tema", placeholder="Ej: Cálculo diferencial")
         descripcion = st.text_area("Descripción (opcional)",
                                    placeholder="Describe brevemente tu duda…", height=80)
@@ -146,11 +135,11 @@ with col_right:
     else:
         filas_html = ""
         for s in sesiones:
-            doc        = parse_perfil_join(s.get("perfiles", {}))
-            nombre_doc = f"{doc.get('nombre','')} {doc.get('apellido','')}".strip() or "Docente"
-            fh         = fmt_fecha(s["fecha_hora"])
-            mat        = s.get("materia") or "—"
-            badge      = estado_badge(s["estado"])
+            # docente_nombre viene resuelto directamente desde db.py
+            nombre_doc = s.get("docente_nombre", "").strip() or "Sin nombre"
+            fh    = fmt_fecha(s["fecha_hora"])
+            mat   = s.get("materia") or "—"
+            badge = estado_badge(s["estado"])
             filas_html += f"""
             <tr>
                 <td>{fh}</td>
@@ -171,12 +160,12 @@ with col_right:
     st.markdown("</div>", unsafe_allow_html=True)
     st.divider()
 
-    # Cancelar sesión programada
+    # Cancelar sesión
     programadas_list = [s for s in sesiones if s["estado"] == "Programada"]
     if programadas_list:
         st.markdown("<h4 style='color:#1e3a5f;'>❌ Cancelar una sesión</h4>", unsafe_allow_html=True)
         opciones_cancel = {
-            f"{fmt_fecha(s['fecha_hora'])} · {s.get('materia','—')}": s
+            f"{fmt_fecha(s['fecha_hora'])} · {s.get('materia','—')} · {s.get('docente_nombre','—')}": s
             for s in programadas_list
         }
         sel_cancel = st.selectbox("Selecciona la sesión a cancelar",
