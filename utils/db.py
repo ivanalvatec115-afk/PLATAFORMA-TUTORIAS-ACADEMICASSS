@@ -1,9 +1,6 @@
 """
 utils/db.py
 Funciones CRUD para todas las entidades de la plataforma.
-Los nombres de alumno/docente se resuelven con una segunda consulta
-y se inyectan directamente como strings en cada sesion,
-evitando problemas con el parseo del join de Supabase.
 """
 from __future__ import annotations
 import streamlit as st
@@ -16,7 +13,9 @@ from datetime import date, time
 # ─────────────────────────────────────────────────────────
 
 def _get_nombre(user_id: str) -> dict:
-    """Retorna {'nombre': ..., 'apellido': ..., 'numero_control': ...} de un perfil."""
+    """Retorna nombre, apellido y numero_control de un perfil."""
+    if not user_id:
+        return {}
     sb = get_supabase()
     try:
         res = (sb.table("perfiles")
@@ -25,7 +24,9 @@ def _get_nombre(user_id: str) -> dict:
                  .single()
                  .execute())
         return res.data or {}
-    except Exception:
+    except Exception as e:
+        # Mostrar el error real para diagnosticar problemas de RLS
+        st.warning(f"⚠️ No se pudo leer perfil {user_id[:8]}…: {e}")
         return {}
 
 
@@ -37,7 +38,10 @@ def _enriquecer_sesiones_alumno(sesiones: list[dict]) -> list[dict]:
         if did not in cache:
             cache[did] = _get_nombre(did)
         info = cache[did]
-        s["docente_nombre"] = f"{info.get('nombre','')} {info.get('apellido','')}".strip() or "Docente"
+        s["docente_nombre"] = (
+            f"{info.get('nombre','')} {info.get('apellido','')}".strip()
+            or f"[id:{did[:8]}]"
+        )
     return sesiones
 
 
@@ -49,8 +53,11 @@ def _enriquecer_sesiones_docente(sesiones: list[dict]) -> list[dict]:
         if aid not in cache:
             cache[aid] = _get_nombre(aid)
         info = cache[aid]
-        s["alumno_nombre"]   = f"{info.get('nombre','')} {info.get('apellido','')}".strip() or "Alumno"
-        s["alumno_control"]  = info.get("numero_control") or "—"
+        s["alumno_nombre"]  = (
+            f"{info.get('nombre','')} {info.get('apellido','')}".strip()
+            or f"[id:{aid[:8]}]"
+        )
+        s["alumno_control"] = info.get("numero_control") or "—"
     return sesiones
 
 
@@ -95,12 +102,13 @@ def get_disponibilidad_docente(docente_id: str) -> list[dict]:
                  .order("hora_inicio")
                  .execute())
         return res.data or []
-    except Exception:
+    except Exception as e:
+        st.error(f"Error al obtener disponibilidad: {e}")
         return []
 
 
 def get_disponibilidad_libre() -> list[dict]:
-    """Slots disponibles con nombre del docente resuelto directamente."""
+    """Slots disponibles con nombre del docente resuelto."""
     sb = get_supabase()
     try:
         res = (sb.table("disponibilidad_docentes")
@@ -111,16 +119,19 @@ def get_disponibilidad_libre() -> list[dict]:
                  .order("hora_inicio")
                  .execute())
         slots = res.data or []
-        # Resolver nombre del docente para cada slot
         cache = {}
         for s in slots:
             did = s.get("docente_id", "")
             if did not in cache:
                 cache[did] = _get_nombre(did)
             info = cache[did]
-            s["docente_nombre"] = f"{info.get('nombre','')} {info.get('apellido','')}".strip() or "Docente"
+            s["docente_nombre"] = (
+                f"{info.get('nombre','')} {info.get('apellido','')}".strip()
+                or f"[id:{did[:8]}]"
+            )
         return slots
-    except Exception:
+    except Exception as e:
+        st.error(f"Error al obtener disponibilidad libre: {e}")
         return []
 
 
@@ -133,7 +144,8 @@ def get_docentes() -> list[dict]:
                  .eq("activo", True)
                  .execute())
         return res.data or []
-    except Exception:
+    except Exception as e:
+        st.error(f"Error al obtener docentes: {e}")
         return []
 
 
@@ -181,7 +193,6 @@ def cancelar_sesion(sesion_id: str, disponibilidad_id: str | None) -> bool:
 
 
 def get_sesiones_alumno(alumno_id: str) -> list[dict]:
-    """Sesiones del alumno con docente_nombre ya resuelto."""
     sb = get_supabase()
     try:
         res = (sb.table("sesiones_tutoria")
@@ -190,12 +201,12 @@ def get_sesiones_alumno(alumno_id: str) -> list[dict]:
                  .order("fecha_hora", desc=True)
                  .execute())
         return _enriquecer_sesiones_alumno(res.data or [])
-    except Exception:
+    except Exception as e:
+        st.error(f"Error al obtener sesiones: {e}")
         return []
 
 
 def get_sesiones_docente(docente_id: str) -> list[dict]:
-    """Sesiones del docente con alumno_nombre y alumno_control ya resueltos."""
     sb = get_supabase()
     try:
         res = (sb.table("sesiones_tutoria")
@@ -204,7 +215,8 @@ def get_sesiones_docente(docente_id: str) -> list[dict]:
                  .order("fecha_hora", desc=True)
                  .execute())
         return _enriquecer_sesiones_docente(res.data or [])
-    except Exception:
+    except Exception as e:
+        st.error(f"Error al obtener sesiones: {e}")
         return []
 
 
@@ -228,12 +240,12 @@ def registrar_asistencia(sesion_id: str, asistio: bool, notas: str = "") -> bool
 # ─────────────────────────────────────────────────────────
 
 def get_todas_sesiones() -> list[dict]:
-    """Admin: usa la vista enriquecida de Supabase."""
     sb = get_supabase()
     try:
         res = sb.table("vista_sesiones").select("*").order("fecha_hora", desc=True).execute()
         return res.data or []
-    except Exception:
+    except Exception as e:
+        st.error(f"Error al obtener sesiones: {e}")
         return []
 
 
@@ -242,7 +254,8 @@ def get_todos_usuarios() -> list[dict]:
     try:
         res = sb.table("perfiles").select("*").order("rol").order("apellido").execute()
         return res.data or []
-    except Exception:
+    except Exception as e:
+        st.error(f"Error al obtener usuarios: {e}")
         return []
 
 
