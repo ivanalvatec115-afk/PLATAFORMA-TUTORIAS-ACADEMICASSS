@@ -146,6 +146,9 @@ def get_disponibilidad_docente(docente_id: str) -> list[dict]:
             m = s.get("materias", {})
             if isinstance(m, list): m = m[0] if m else {}
             s["materia_nombre"] = m.get("nombre", "—") if m else "—"
+            # Normalizar horas a HH:MM
+            s["hora_inicio"] = str(s.get("hora_inicio", ""))[:5]
+            s["hora_fin"]    = str(s.get("hora_fin", ""))[:5]
         return slots
     except Exception as e:
         st.error(f"Error al obtener disponibilidad: {e}")
@@ -303,8 +306,10 @@ def get_slots_con_alumnos_docente(docente_id: str, solo_pasados: bool = False) -
         resultado = []
         for s in todos:
             try:
-                hora_fin_dt = datetime.strptime(f"{s['fecha']} {s['hora_fin']}", "%Y-%m-%d %H:%M")
-                hora_ini_dt = datetime.strptime(f"{s['fecha']} {s['hora_inicio']}", "%Y-%m-%d %H:%M")
+                # Supabase puede devolver "HH:MM:SS" o "HH:MM", normalizamos
+                hora_fin_str = str(s['hora_fin'])[:5]
+                hora_ini_str = str(s['hora_inicio'])[:5]
+                hora_fin_dt  = datetime.strptime(f"{s['fecha']} {hora_fin_str}", "%Y-%m-%d %H:%M")
             except Exception:
                 continue
 
@@ -437,6 +442,16 @@ def crear_usuario_completo(nombre: str, apellido: str, correo: str,
             }).execute()
             return True, res.user.id
         return False, "No se pudo crear el usuario."
+    except Exception as e:
+        return False, str(e)
+
+
+def cambiar_password_usuario(user_id: str, nueva_password: str) -> tuple[bool, str]:
+    """Cambia la contraseña de un usuario usando service_role."""
+    sb_admin = get_supabase_admin()
+    try:
+        sb_admin.auth.admin.update_user_by_id(user_id, {"password": nueva_password})
+        return True, "Contraseña actualizada."
     except Exception as e:
         return False, str(e)
 
