@@ -1,5 +1,5 @@
 """
-app.py — Punto de entrada de TutorIA
+app.py — Punto de entrada de SisTutor
 Plataforma de Tutorias Academicas · Instituto Tecnologico de Matehuala
 """
 import streamlit as st
@@ -8,7 +8,7 @@ from utils.auth import login, get_current_rol
 from utils.supabase_client import get_supabase, SUPABASE_URL
 
 st.set_page_config(
-    page_title="TutorIA · Tutorías Académicas",
+    page_title="SisTutor · Tutorías Académicas",
     page_icon="🎓",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -38,7 +38,7 @@ with col_brand:
     st.markdown("""
     <div class="login-brand">
         <div style="font-size:3.5rem; margin-bottom:1.2rem;">🎓</div>
-        <h1>TutorIA</h1>
+        <h1>SisTutor</h1>
         <p>Plataforma centralizada para gestionar disponibilidad,
         agendar sesiones y dar seguimiento académico a las tutorías
         del Instituto Tecnológico de Matehuala.</p>
