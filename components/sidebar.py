@@ -42,7 +42,7 @@ def render_sidebar():
         <hr style="border-color:rgba(255,255,255,0.15); margin: 0.8rem 0;">
         """, unsafe_allow_html=True)
 
-        st.markdown("### 🎓 SisTutor")
+        st.markdown("### 🎓 Tutorías ITMH")
 
         # Menú según rol
         if rol == "alumno":
