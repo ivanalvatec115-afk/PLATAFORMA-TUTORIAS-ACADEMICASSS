@@ -1,6 +1,6 @@
 """
 pages/admin.py
-Panel del Administrador — SisTutor
+Panel del Administrador — Plataforma de Tutorías Académicas - ITMH
 """
 import streamlit as st
 import pandas as pd
@@ -11,7 +11,7 @@ from utils.auth import require_auth, get_current_perfil, get_current_rol
 from utils.db import get_todas_sesiones, get_todos_usuarios, actualizar_usuario
 from components.sidebar import render_sidebar
 
-st.set_page_config(page_title="SisTutor · Admin", page_icon="⚙️", layout="wide")
+st.set_page_config(page_title="Plataforma de Tutorías Académicas - ITMH · Admin", page_icon="⚙️", layout="wide")
 inject_css()
 require_auth()
 
