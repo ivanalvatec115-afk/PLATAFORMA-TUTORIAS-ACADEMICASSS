@@ -1,5 +1,5 @@
 """
-utils/styles.py — SisTutor
+utils/styles.py — Plataforma de Tutorías Académicas - ITMH
 """
 
 MAIN_CSS = """
