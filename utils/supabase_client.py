@@ -6,7 +6,7 @@ import streamlit as st
 from supabase import create_client, Client
 
 # Settings -> API -> Project URL
-SUPABASE_URL = "https://jcyinyyymqlzfkzjbjbt.supabase.co/rest/v1/"
+SUPABASE_URL = "https://jcyinyyymqlzfkzjbjbt.supabase.co/"
 
 # Settings -> API -> anon public key (para operaciones normales)
 SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpjeWlueXl5bXFsemZrempiamJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NDUzODEsImV4cCI6MjA5MjAyMTM4MX0.eEgk6F4GEJBpgkg1v3udB9Fk1klz-1p-Ovf0NVeqtNo"
