@@ -1,6 +1,5 @@
 """
-pages/docente.py
-Dashboard del Docente Tutor — Plataforma de Tutorías Académicas - ITMH
+pages/docente.py — Plataforma de Tutorías Académicas ITMH
 """
 import streamlit as st
 from datetime import datetime, date, time
@@ -11,11 +10,15 @@ from utils.db import (
     agregar_disponibilidad,
     eliminar_disponibilidad,
     get_sesiones_docente,
+    get_slots_pasados_docente,
+    get_alumnos_por_slot,
     registrar_asistencia,
+    get_materias_docente,
 )
 from components.sidebar import render_sidebar
 
-st.set_page_config(page_title="Plataforma de Tutorías Académicas - ITMH · Docente", page_icon="📚", layout="wide")
+st.set_page_config(page_title="Plataforma de Tutorías Académicas - ITMH · Docente",
+                   page_icon="📚", layout="wide")
 inject_css()
 require_auth()
 
@@ -66,85 +69,97 @@ col_left, col_right = st.columns([1, 1.3], gap="large")
 with col_left:
     st.markdown("<div class='tutoria-card'><h3>🕐 Gestionar disponibilidad</h3>", unsafe_allow_html=True)
 
-    with st.form("form_disponibilidad", clear_on_submit=True):
-        f_fecha  = st.date_input("Fecha", min_value=date.today())
-        c1, c2   = st.columns(2)
-        with c1:
-            f_inicio = st.time_input("Hora inicio", value=time(9, 0))
-        with c2:
-            f_fin    = st.time_input("Hora fin",    value=time(10, 0))
-        submitted = st.form_submit_button("➕ Agregar bloque", type="primary",
-                                          use_container_width=True)
+    materias_doc = get_materias_docente(perfil["id"])
+    if not materias_doc:
+        st.warning("No tienes materias asignadas. Contacta al administrador.")
+    else:
+        with st.form("form_disponibilidad", clear_on_submit=True):
+            mat_nombres = {m["nombre"]: m["id"] for m in materias_doc}
+            mat_sel     = st.selectbox("Materia", list(mat_nombres.keys()))
+            f_fecha     = st.date_input("Fecha", min_value=date.today())
+            c1, c2      = st.columns(2)
+            with c1:
+                f_inicio = st.time_input("Hora inicio", value=time(9, 0))
+            with c2:
+                f_fin    = st.time_input("Hora fin",    value=time(10, 0))
+            cupos    = st.number_input("Cupos máximos", min_value=1, max_value=8,
+                                       value=8, step=1)
+            submitted = st.form_submit_button("➕ Agregar bloque", type="primary",
+                                              use_container_width=True)
 
-    if submitted:
-        if f_inicio >= f_fin:
-            st.error("La hora de inicio debe ser menor a la de fin.")
-        else:
-            ok = agregar_disponibilidad(perfil["id"], f_fecha, f_inicio, f_fin)
-            if ok:
-                st.success("Bloque registrado.")
-                st.rerun()
+        if submitted:
+            if f_inicio >= f_fin:
+                st.error("La hora de inicio debe ser menor a la de fin.")
+            else:
+                ok = agregar_disponibilidad(
+                    perfil["id"], f_fecha, f_inicio, f_fin,
+                    mat_nombres[mat_sel], cupos
+                )
+                if ok:
+                    st.success("Bloque registrado.")
+                    st.rerun()
 
-    st.markdown("<b style='color:#5b6e8c; font-size:0.82rem;'>Mis horarios registrados</b>",
+    st.markdown("<b style='color:#0d2137; font-size:0.82rem;'>Mis horarios registrados</b>",
                 unsafe_allow_html=True)
     slots = get_disponibilidad_docente(perfil["id"])
     if not slots:
         st.caption("Aún no has registrado disponibilidad.")
     else:
         for s in slots:
-            estado_txt = "✅ Libre" if s["disponible"] else "🔒 Ocupado"
+            libres     = s.get("cupos", 8) - s.get("cupos_usados", 0)
+            estado_txt = f"✅ {libres} cupos libres" if s["disponible"] else "🔒 Sin cupos"
             col_info, col_btn = st.columns([3, 1])
             with col_info:
                 st.markdown(f"""
                 <div class="avail-item">
                     <div>
-                        <strong>{s['fecha']}</strong><br>
+                        <strong>{s['fecha']} · {s.get('materia_nombre','—')}</strong><br>
                         <small>{s['hora_inicio'][:5]} – {s['hora_fin'][:5]} &nbsp; {estado_txt}</small>
                     </div>
                 </div>""", unsafe_allow_html=True)
             with col_btn:
-                if s["disponible"]:
+                if s.get("cupos_usados", 0) == 0:
                     if st.button("🗑", key=f"del_{s['id']}", help="Eliminar bloque"):
                         eliminar_disponibilidad(s["id"])
                         st.rerun()
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ── DERECHA: Sesiones ─────────────────────────────────────
+# ── DERECHA: Tabs ────────────────────────────────────────
 with col_right:
-    tab_programadas, tab_historial, tab_asistencia = st.tabs(
+    tab_prog, tab_hist, tab_asist = st.tabs(
         ["📅 Programadas", "📋 Historial", "✍️ Registrar asistencia"]
     )
 
-    with tab_programadas:
+    # ── Tab: Programadas ──
+    with tab_prog:
         progs = [s for s in sesiones if s["estado"] == "Programada"]
         if not progs:
             st.info("No tienes sesiones programadas.")
         else:
             for s in progs:
-                # alumno_nombre y alumno_control vienen resueltos desde db.py
-                nombre_alum = s.get("alumno_nombre", "").strip() or "Sin nombre"
+                nombre_alum = s.get("alumno_nombre", "—")
                 ctrl        = s.get("alumno_control", "—")
                 fh          = fmt_fecha(s["fecha_hora"])
                 st.markdown(f"""
                 <div class="avail-item">
                     <div>
                         <strong>{nombre_alum}</strong>
-                        <small style="color:#5b6e8c"> · {ctrl}</small><br>
+                        <small style="color:#5a7080"> · {ctrl}</small><br>
                         <small>📆 {fh} · 📖 {s.get('materia','—')}</small><br>
                         <small style="color:#888;">{s.get('descripcion','')}</small>
                     </div>
                     <span class="badge-blue">Programada</span>
-                </div>
-                """, unsafe_allow_html=True)
+                </div>""", unsafe_allow_html=True)
 
-    with tab_historial:
+    # ── Tab: Historial ──
+    with tab_hist:
         if not sesiones:
             st.info("Sin sesiones registradas.")
         else:
             filas = ""
             for s in sesiones:
-                nombre_alum = s.get("alumno_nombre", "").strip() or "Sin nombre"
+                nombre_alum = s.get("alumno_nombre", "—")
                 ctrl        = s.get("alumno_control", "—")
                 fh          = fmt_fecha(s["fecha_hora"])
                 mat         = s.get("materia") or "—"
@@ -165,32 +180,75 @@ with col_right:
                 <tbody>{filas}</tbody>
             </table>""", unsafe_allow_html=True)
 
-    with tab_asistencia:
-        progs_asist = [s for s in sesiones if s["estado"] == "Programada"]
-        if not progs_asist:
-            st.info("No hay sesiones programadas pendientes de cerrar.")
+    # ── Tab: Registrar asistencia (solo sesiones PASADAS) ──
+    with tab_asist:
+        st.markdown("**Solo aparecen sesiones cuyo horario ya terminó.**")
+
+        slots_pasados = get_slots_pasados_docente(perfil["id"])
+        if not slots_pasados:
+            st.info("No hay sesiones pasadas pendientes de registrar.")
         else:
-            opciones = {}
-            for s in progs_asist:
-                nombre_alum = s.get("alumno_nombre", "").strip() or "Sin nombre"
-                ctrl        = s.get("alumno_control", "—")
-                fh          = fmt_fecha(s["fecha_hora"])
-                label       = f"{nombre_alum} ({ctrl}) · {fh} · {s.get('materia','—')}"
-                opciones[label] = s
+            opciones_slot = {}
+            for s in slots_pasados:
+                label = (f"{s['fecha']} {s['hora_inicio'][:5]}–{s['hora_fin'][:5]}"
+                         f" · {s.get('materia_nombre','—')}")
+                opciones_slot[label] = s
 
-            sel_label = st.selectbox("Selecciona la sesión", list(opciones.keys()))
-            ses       = opciones[sel_label]
-            asistio   = st.radio("¿El alumno asistió?",
-                                 ["Sí, asistió", "No asistió"], horizontal=True)
-            notas     = st.text_area("Notas de la sesión (opcional)",
-                                     placeholder="Observaciones, temas tratados…", height=90)
+            sel_label = st.selectbox("Selecciona la sesión", list(opciones_slot.keys()),
+                                     key="slot_asist")
+            slot_sel  = opciones_slot[sel_label]
 
-            if st.button("💾 Cerrar y guardar sesión", type="primary", use_container_width=True):
-                ok = registrar_asistencia(
-                    sesion_id=ses["id"],
-                    asistio=(asistio == "Sí, asistió"),
-                    notas=notas,
+            # Cargar todos los alumnos de ese slot
+            alumnos_slot = get_alumnos_por_slot(slot_sel["id"])
+
+            if not alumnos_slot:
+                st.info("No hay alumnos registrados en esta sesión.")
+            else:
+                st.markdown(f"**{len(alumnos_slot)} alumno(s) reservaron este horario:**")
+                st.divider()
+
+                notas_globales = st.text_area(
+                    "Notas generales de la sesión (opcional)",
+                    placeholder="Temas tratados, observaciones generales…",
+                    height=70, key="notas_glob"
                 )
-                if ok:
-                    st.success("✅ Sesión cerrada y guardada en el historial académico.")
-                    st.rerun()
+
+                cambios = {}
+                for alumno in alumnos_slot:
+                    sid   = alumno["id"]
+                    nom   = alumno.get("alumno_nombre", "—")
+                    ctrl  = alumno.get("alumno_control", "—")
+                    ya_reg = alumno.get("asistencia") is not None
+
+                    col_n, col_r = st.columns([2, 1])
+                    with col_n:
+                        st.markdown(f"""
+                        <div style="padding:6px 0;">
+                            <strong style="color:#0d2137;">{nom}</strong>
+                            <small style="color:#5a7080;"> · {ctrl}</small>
+                            {"&nbsp;<span class='badge-green'>Ya registrado</span>" if ya_reg else ""}
+                        </div>""", unsafe_allow_html=True)
+                    with col_r:
+                        asistio = st.radio(
+                            f"Asistencia",
+                            ["✅ Asistió", "❌ No asistió"],
+                            key=f"asist_{sid}",
+                            horizontal=True,
+                            index=0 if alumno.get("asistencia") is not False else 1,
+                            label_visibility="collapsed"
+                        )
+                        cambios[sid] = asistio == "✅ Asistió"
+                    st.divider()
+
+                if st.button("💾 Guardar asistencias", type="primary",
+                             use_container_width=True):
+                    errores = 0
+                    for sesion_id, asistio in cambios.items():
+                        ok = registrar_asistencia(sesion_id, asistio, notas_globales)
+                        if not ok:
+                            errores += 1
+                    if errores == 0:
+                        st.success("✅ Asistencias guardadas correctamente.")
+                        st.rerun()
+                    else:
+                        st.error(f"Hubo {errores} error(es) al guardar.")
