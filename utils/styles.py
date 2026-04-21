@@ -1,6 +1,5 @@
 """
-utils/styles.py
-Estilos CSS globales — TutorIA
+utils/styles.py — TutorIA
 """
 
 MAIN_CSS = """
@@ -12,7 +11,6 @@ MAIN_CSS = """
     --navy-mid:  #163352;
     --blue:      #1a6fa8;
     --blue-lt:   #d0e8f7;
-    --bg:        #eef2f7;
     --card:      #ffffff;
     --border:    #cdd8e3;
     --text:      #0d1f2d;
@@ -28,42 +26,55 @@ MAIN_CSS = """
     --gray-txt:  #3a3f45;
 }
 
-/* ── Base: NO forzar color global para no romper fondos oscuros ── */
 html, body, [class*="css"] {
     font-family: 'Nunito', sans-serif !important;
 }
 
-/* ── Fondo ── */
 .stApp {
     background: linear-gradient(150deg, #dce8f5 0%, #eef2f7 60%, #e0eaf4 100%) !important;
 }
 
-/* ── Texto general del contenido principal (fondo claro) ── */
-.stApp p, .stApp span, .stApp div,
-.stApp label, .stApp li {
-    color: var(--text);
+/* ══════════════════════════════════════════════════════
+   REGLA MAESTRA: TODO dentro de fondo oscuro = BLANCO
+   Se aplica a sidebar, dash-header, metric-box y login-brand
+   ══════════════════════════════════════════════════════ */
+[data-testid="stSidebar"] *,
+.dash-header *,
+.metric-box *,
+.login-brand * {
+    color: #ffffff !important;
 }
 
-/* ══════════════════════════════════════════════
-   SIDEBAR — todo blanco sobre fondo oscuro
-   ══════════════════════════════════════════════ */
+/* ── Excepciones dentro de fondos oscuros ── */
+.dash-header .role-tag {
+    background: rgba(255,255,255,0.18) !important;
+    color: #d0e8f7 !important;
+    padding: 3px 12px;
+    border-radius: 30px;
+    font-size: 0.78rem !important;
+    font-weight: 700 !important;
+    margin-left: 8px;
+    border: 1px solid rgba(255,255,255,0.28);
+}
+.dash-header .user-info-txt * {
+    color: #a8c8e8 !important;
+}
+.metric-box .lbl * {
+    color: #a8c8e8 !important;
+}
+.login-brand p * {
+    color: #b8d4ea !important;
+}
+.login-brand .feature * {
+    color: #d0e8f7 !important;
+}
+
+/* ══════════════════════════════════
+   SIDEBAR
+   ══════════════════════════════════ */
 [data-testid="stSidebar"] {
     background: var(--navy) !important;
     border-right: 3px solid var(--blue) !important;
-}
-[data-testid="stSidebar"],
-[data-testid="stSidebar"] *,
-[data-testid="stSidebar"] p,
-[data-testid="stSidebar"] span,
-[data-testid="stSidebar"] div,
-[data-testid="stSidebar"] label,
-[data-testid="stSidebar"] a,
-[data-testid="stSidebar"] h1,
-[data-testid="stSidebar"] h2,
-[data-testid="stSidebar"] h3,
-[data-testid="stSidebar"] small {
-    color: #e8f0f7 !important;
-    font-family: 'Nunito', sans-serif !important;
 }
 [data-testid="stSidebar"] hr {
     border-color: rgba(255,255,255,0.15) !important;
@@ -78,11 +89,11 @@ html, body, [class*="css"] {
     background: rgba(255,255,255,0.22) !important;
 }
 
-/* ══════════════════════════════════════════════
-   DASH HEADER — fondo oscuro, todo blanco
-   ══════════════════════════════════════════════ */
+/* ══════════════════════════════════
+   DASH HEADER
+   ══════════════════════════════════ */
 .dash-header {
-    background: var(--navy) !important;
+    background: var(--navy);
     border-radius: 14px;
     padding: 1rem 1.8rem;
     display: flex;
@@ -91,36 +102,10 @@ html, body, [class*="css"] {
     margin-bottom: 1.5rem;
     box-shadow: 0 4px 16px rgba(13,33,55,0.20);
 }
-.dash-header h2,
-.dash-header h2 *,
-.dash-header span,
-.dash-header div,
-.dash-header p {
-    color: #ffffff !important;
-    font-size: 1.25rem;
-    font-weight: 800;
-    margin: 0;
-}
-.dash-header .role-tag {
-    background: rgba(255,255,255,0.18) !important;
-    color: #d0e8f7 !important;
-    padding: 3px 12px;
-    border-radius: 30px;
-    font-size: 0.78rem !important;
-    font-weight: 700 !important;
-    margin-left: 10px;
-    border: 1px solid rgba(255,255,255,0.28);
-}
-.dash-header .user-info-txt,
-.dash-header .user-info-txt * {
-    color: #a8c8e8 !important;
-    font-size: 0.85rem !important;
-    font-weight: 600 !important;
-}
 
-/* ══════════════════════════════════════════════
-   METRIC BOXES — fondo oscuro, números blancos
-   ══════════════════════════════════════════════ */
+/* ══════════════════════════════════
+   METRIC BOXES
+   ══════════════════════════════════ */
 .metric-row {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -134,28 +119,25 @@ html, body, [class*="css"] {
     text-align: center;
     box-shadow: 0 3px 12px rgba(13,33,55,0.18);
 }
-.metric-box .num,
-.metric-box .num * {
-    font-size: 2.2rem !important;
-    font-weight: 800 !important;
-    color: #ffffff !important;
+.metric-box .num {
+    font-size: 2.2rem;
+    font-weight: 800;
     line-height: 1;
     display: block;
 }
-.metric-box .lbl,
-.metric-box .lbl * {
-    font-size: 0.73rem !important;
-    color: #a8c8e8 !important;
+.metric-box .lbl {
+    font-size: 0.73rem;
     margin-top: 5px;
-    font-weight: 700 !important;
+    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     display: block;
+    color: #a8c8e8 !important;
 }
 
-/* ══════════════════════════════════════════════
-   LOGIN BRAND — fondo oscuro, todo blanco
-   ══════════════════════════════════════════════ */
+/* ══════════════════════════════════
+   LOGIN BRAND
+   ══════════════════════════════════ */
 .login-brand {
     background: linear-gradient(145deg, var(--navy) 0%, var(--navy-mid) 100%);
     border-radius: 20px;
@@ -163,39 +145,29 @@ html, body, [class*="css"] {
     box-shadow: 0 8px 32px rgba(13,33,55,0.25);
     min-height: 420px;
 }
-.login-brand,
-.login-brand *,
-.login-brand h1,
-.login-brand p,
-.login-brand div,
-.login-brand span {
-    color: #ffffff !important;
-}
 .login-brand h1 {
-    font-size: 2.4rem !important;
-    font-weight: 800 !important;
+    font-size: 2.4rem;
+    font-weight: 800;
     margin-bottom: 1rem;
     letter-spacing: -0.02em;
 }
 .login-brand p {
-    color: #b8d4ea !important;
     line-height: 1.7;
-    font-size: 0.95rem !important;
-    font-weight: 500 !important;
+    font-size: 0.95rem;
+    font-weight: 500;
 }
 .login-brand .feature {
     display: flex;
     align-items: center;
     gap: 8px;
     margin-top: 0.8rem;
-    font-size: 0.88rem !important;
-    color: #d0e8f7 !important;
-    font-weight: 600 !important;
+    font-size: 0.88rem;
+    font-weight: 600;
 }
 
-/* ══════════════════════════════════════════════
-   CARDS — fondo blanco, texto oscuro
-   ══════════════════════════════════════════════ */
+/* ══════════════════════════════════
+   CARDS (fondo blanco — texto oscuro)
+   ══════════════════════════════════ */
 .tutoria-card {
     background: var(--card);
     border-radius: 16px;
@@ -222,17 +194,9 @@ html, body, [class*="css"] {
     border: 1px solid var(--border);
     margin-bottom: 1rem;
 }
-.login-box h2 {
-    color: var(--navy) !important;
-    font-size: 1.6rem;
-    font-weight: 800;
-    margin-bottom: 0.3rem;
-}
-.login-box p {
-    color: var(--text-soft) !important;
-    font-size: 0.9rem;
-    font-weight: 500;
-}
+.login-box h2 { color: var(--navy) !important; font-size: 1.6rem; font-weight: 800; }
+.login-box p  { color: var(--text-soft) !important; font-size: 0.9rem; font-weight: 500; }
+
 .login-note {
     background: var(--blue-lt);
     color: var(--navy-mid) !important;
@@ -244,135 +208,63 @@ html, body, [class*="css"] {
     border: 1px solid #8bbcd8;
 }
 
-/* ══════════════════════════════════════════════
+/* ══════════════════════════════════
    BADGES
-   ══════════════════════════════════════════════ */
-.badge-green {
-    background: var(--green-bg) !important;
-    color: var(--green) !important;
-    padding: 4px 12px;
-    border-radius: 50px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    border: 1px solid #a3d4b0;
-}
-.badge-blue {
-    background: var(--blue-lt) !important;
-    color: var(--navy) !important;
-    padding: 4px 12px;
-    border-radius: 50px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    border: 1px solid #8bbcd8;
-}
-.badge-red {
-    background: var(--red-bg) !important;
-    color: var(--red) !important;
-    padding: 4px 12px;
-    border-radius: 50px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    border: 1px solid #f0b0b0;
-}
-.badge-gray {
-    background: var(--orange-bg) !important;
-    color: var(--orange) !important;
-    padding: 4px 12px;
-    border-radius: 50px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    border: 1px solid #f0c898;
-}
+   ══════════════════════════════════ */
+.badge-green { background: var(--green-bg); color: var(--green) !important; padding: 4px 12px; border-radius: 50px; font-size: 0.75rem; font-weight: 700; border: 1px solid #a3d4b0; }
+.badge-blue  { background: var(--blue-lt);  color: var(--navy) !important;  padding: 4px 12px; border-radius: 50px; font-size: 0.75rem; font-weight: 700; border: 1px solid #8bbcd8; }
+.badge-red   { background: var(--red-bg);   color: var(--red) !important;   padding: 4px 12px; border-radius: 50px; font-size: 0.75rem; font-weight: 700; border: 1px solid #f0b0b0; }
+.badge-gray  { background: var(--orange-bg);color: var(--orange) !important;padding: 4px 12px; border-radius: 50px; font-size: 0.75rem; font-weight: 700; border: 1px solid #f0c898; }
 
-/* ══════════════════════════════════════════════
+/* ══════════════════════════════════
    TABLA HISTORIAL
-   ══════════════════════════════════════════════ */
-.hist-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.88rem;
-}
+   ══════════════════════════════════ */
+.hist-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
 .hist-table th {
-    text-align: left;
-    padding: 10px 8px;
+    text-align: left; padding: 10px 8px;
     border-bottom: 2px solid var(--border);
-    color: var(--navy) !important;
-    font-weight: 800;
-    font-size: 0.78rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    background: #e8f0f8;
+    color: var(--navy) !important; font-weight: 800;
+    font-size: 0.78rem; text-transform: uppercase;
+    letter-spacing: 0.05em; background: #e8f0f8;
 }
 .hist-table td {
-    padding: 11px 8px;
-    border-bottom: 1px solid #dde6ef;
-    color: var(--text) !important;
-    font-weight: 600;
-    vertical-align: middle;
+    padding: 11px 8px; border-bottom: 1px solid #dde6ef;
+    color: var(--text) !important; font-weight: 600; vertical-align: middle;
 }
-.hist-table tr:hover td {
-    background: #f0f6fb;
-}
+.hist-table tr:hover td { background: #f0f6fb; }
 
 /* ── Availability items ── */
 .avail-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 0;
+    display: flex; justify-content: space-between;
+    align-items: center; padding: 12px 0;
     border-bottom: 1px solid #dde6ef;
 }
 .avail-item:last-child { border-bottom: none; }
-.avail-item strong {
-    color: var(--navy) !important;
-    font-weight: 700;
-    font-size: 0.92rem;
-}
-.avail-item small {
-    color: var(--text-soft) !important;
-    font-size: 0.8rem;
-    font-weight: 600;
-}
+.avail-item strong { color: var(--navy) !important; font-weight: 700; font-size: 0.92rem; }
+.avail-item small  { color: var(--text-soft) !important; font-size: 0.8rem; font-weight: 600; }
 
-/* ══════════════════════════════════════════════
-   STREAMLIT INPUTS — labels siempre oscuros
-   ══════════════════════════════════════════════ */
-.stTextInput label,
-.stSelectbox label,
-.stDateInput label,
-.stTimeInput label,
-.stTextArea label,
-.stRadio label,
-.stRadio div[role="radiogroup"] label,
-.stToggle label,
-.stCheckbox label {
+/* ══════════════════════════════════
+   INPUTS Y LABELS (área clara)
+   ══════════════════════════════════ */
+.stTextInput label, .stSelectbox label, .stDateInput label,
+.stTimeInput label, .stTextArea label, .stRadio label,
+.stToggle label, .stCheckbox label {
     color: var(--navy) !important;
     font-weight: 700 !important;
     font-size: 0.88rem !important;
 }
-.stTextInput input,
-.stTextArea textarea {
+.stTextInput input, .stTextArea textarea {
     border-radius: 10px !important;
     border: 1.5px solid var(--border) !important;
     color: var(--text) !important;
     background: #f8fbff !important;
     font-weight: 600 !important;
 }
-.stTextInput input:focus,
-.stTextArea textarea:focus {
-    border-color: var(--blue) !important;
-    box-shadow: 0 0 0 3px rgba(26,111,168,0.15) !important;
-}
+.stRadio div[role="radiogroup"] label p { color: var(--text) !important; font-weight: 600 !important; }
 
-/* ── Radio options ── */
-.stRadio div[role="radiogroup"] label p {
-    color: var(--text) !important;
-    font-weight: 600 !important;
-}
-
-/* ══════════════════════════════════════════════
-   STREAMLIT BUTTONS
-   ══════════════════════════════════════════════ */
+/* ══════════════════════════════════
+   BOTONES
+   ══════════════════════════════════ */
 .stButton > button {
     border-radius: 10px !important;
     font-weight: 700 !important;
@@ -381,109 +273,41 @@ html, body, [class*="css"] {
     transition: all 0.18s ease !important;
 }
 .stButton > button[kind="primary"] {
-    background: var(--blue) !important;
-    color: #ffffff !important;
-    border: none !important;
-    box-shadow: 0 3px 10px rgba(26,111,168,0.30) !important;
+    background: var(--blue) !important; color: #ffffff !important;
+    border: none !important; box-shadow: 0 3px 10px rgba(26,111,168,0.30) !important;
 }
-.stButton > button[kind="primary"]:hover {
-    background: var(--navy) !important;
-    transform: translateY(-1px);
-}
-.stButton > button[kind="secondary"] {
-    background: var(--gray-bg) !important;
-    color: var(--gray-txt) !important;
-    border: 1.5px solid var(--border) !important;
-}
+.stButton > button[kind="primary"]:hover { background: var(--navy) !important; transform: translateY(-1px); }
+.stButton > button[kind="secondary"] { background: var(--gray-bg) !important; color: var(--gray-txt) !important; border: 1.5px solid var(--border) !important; }
 
-/* ══════════════════════════════════════════════
+/* ══════════════════════════════════
    TABS
-   ══════════════════════════════════════════════ */
-.stTabs [data-baseweb="tab-list"] {
-    gap: 0.4rem;
-    background: #dce8f5;
-    border-radius: 10px;
-    padding: 4px;
-}
-.stTabs [data-baseweb="tab"] {
-    border-radius: 8px !important;
-    font-weight: 700 !important;
-    font-size: 0.85rem !important;
-    color: var(--navy-mid) !important;
-    padding: 6px 16px !important;
-}
-.stTabs [aria-selected="true"] {
-    background: var(--navy) !important;
-    color: #ffffff !important;
-    box-shadow: 0 2px 8px rgba(13,33,55,0.2) !important;
-}
-/* texto del tab activo siempre blanco */
-.stTabs [aria-selected="true"] p,
-.stTabs [aria-selected="true"] span,
-.stTabs [aria-selected="true"] div {
-    color: #ffffff !important;
-}
+   ══════════════════════════════════ */
+.stTabs [data-baseweb="tab-list"] { gap: 0.4rem; background: #dce8f5; border-radius: 10px; padding: 4px; }
+.stTabs [data-baseweb="tab"] { border-radius: 8px !important; font-weight: 700 !important; font-size: 0.85rem !important; color: var(--navy-mid) !important; padding: 6px 16px !important; }
+.stTabs [aria-selected="true"] { background: var(--navy) !important; box-shadow: 0 2px 8px rgba(13,33,55,0.2) !important; }
+.stTabs [aria-selected="true"] * { color: #ffffff !important; }
 
-/* ══════════════════════════════════════════════
+/* ══════════════════════════════════
    SELECTBOX
-   ══════════════════════════════════════════════ */
-div[data-baseweb="select"] > div {
-    border-radius: 10px !important;
-    border: 1.5px solid var(--border) !important;
-    background: #f8fbff !important;
-}
-div[data-baseweb="select"] span,
-div[data-baseweb="select"] div {
-    color: var(--text) !important;
-    font-weight: 600 !important;
-}
+   ══════════════════════════════════ */
+div[data-baseweb="select"] > div { border-radius: 10px !important; border: 1.5px solid var(--border) !important; background: #f8fbff !important; }
+div[data-baseweb="select"] span, div[data-baseweb="select"] div { color: var(--text) !important; font-weight: 600 !important; }
 
-/* ══════════════════════════════════════════════
+/* ══════════════════════════════════
    EXPANDER
-   ══════════════════════════════════════════════ */
-[data-testid="stExpander"] {
-    border: 1px solid var(--border) !important;
-    border-radius: 10px !important;
-    background: white !important;
-}
+   ══════════════════════════════════ */
+[data-testid="stExpander"] { border: 1px solid var(--border) !important; border-radius: 10px !important; background: white !important; }
 [data-testid="stExpander"] summary p,
-[data-testid="stExpander"] summary span {
-    color: var(--navy) !important;
-    font-weight: 700 !important;
-}
+[data-testid="stExpander"] summary span { color: var(--navy) !important; font-weight: 700 !important; }
 
-/* ══════════════════════════════════════════════
-   FORMULARIO
-   ══════════════════════════════════════════════ */
-[data-testid="stForm"] {
-    border: 1.5px solid var(--border) !important;
-    border-radius: 14px !important;
-    padding: 1rem !important;
-    background: #f4f8fc !important;
-}
-
-/* ── Divider ── */
+/* ══════════════════════════════════
+   FORM, DIVIDER, CAPTION, MARKDOWN
+   ══════════════════════════════════ */
+[data-testid="stForm"] { border: 1.5px solid var(--border) !important; border-radius: 14px !important; padding: 1rem !important; background: #f4f8fc !important; }
 hr { border-color: var(--border) !important; }
-
-/* ── Caption ── */
-.stCaption, [data-testid="stCaptionContainer"],
-[data-testid="stCaptionContainer"] * {
-    color: var(--muted) !important;
-    font-weight: 600 !important;
-}
-
-/* ══════════════════════════════════════════════
-   STREAMLIT MARKDOWN headers fuera de dark containers
-   ══════════════════════════════════════════════ */
-.stMarkdown h1, .stMarkdown h2,
-.stMarkdown h3, .stMarkdown h4 {
-    color: var(--navy) !important;
-    font-weight: 800 !important;
-}
-.stMarkdown p {
-    color: var(--text) !important;
-    font-weight: 500;
-}
+.stCaption, [data-testid="stCaptionContainer"] * { color: var(--muted) !important; font-weight: 600 !important; }
+.stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4 { color: var(--navy) !important; font-weight: 800 !important; }
+.stMarkdown p { color: var(--text) !important; font-weight: 500; }
 </style>
 """
 
