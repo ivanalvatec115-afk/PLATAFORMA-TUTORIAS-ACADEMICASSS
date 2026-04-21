@@ -40,9 +40,7 @@ with col_brand:
         <div style="font-size:3.5rem; margin-bottom:1.2rem;">🎓</div>
         <h1 style="color:#ffffff !important;">Plataforma de Tutorías Académicas - ITMH</h1>
         <p style="color:#ffffff !important; font-size:0.95rem; line-height:1.7; font-weight:500;">
-        Plataforma centralizada para gestionar disponibilidad,
-        agendar sesiones y dar seguimiento académico a las tutorías
-        del Instituto Tecnológico de Matehuala.</p>
+        ㅤ.</p>
         <div class="feature" style="color:#ffffff !important;">✅ Gestión de disponibilidad docente</div>
         <div class="feature" style="color:#ffffff !important;">📅 Agendamiento de sesiones</div>
         <div class="feature" style="color:#ffffff !important;">📊 Reportes y estadísticas</div>
