@@ -456,6 +456,80 @@ def cambiar_password_usuario(user_id: str, nueva_password: str) -> tuple[bool, s
         return False, str(e)
 
 
+
+
+def actualizar_usuario_completo(user_id: str, datos_perfil: dict,
+                                 nuevo_correo: str = None,
+                                 nueva_password: str = None) -> tuple[bool, str]:
+    """Actualiza perfil en tabla perfiles Y en Supabase Auth si cambia correo/password."""
+    sb       = get_supabase()
+    sb_admin = get_supabase_admin()
+    try:
+        # 1. Actualizar tabla perfiles
+        sb.table("perfiles").update(datos_perfil).eq("id", user_id).execute()
+
+        # 2. Si cambió correo o contraseña, actualizar en Auth también
+        auth_update = {}
+        if nuevo_correo:
+            auth_update["email"] = nuevo_correo
+        if nueva_password:
+            auth_update["password"] = nueva_password
+        if auth_update:
+            sb_admin.auth.admin.update_user_by_id(user_id, auth_update)
+
+        return True, "ok"
+    except Exception as e:
+        return False, str(e)
+
+
+def get_slots_todos_docentes() -> list[dict]:
+    """Para admin: todos los slots de todos los docentes con sus alumnos."""
+    sb = get_supabase()
+    try:
+        res = (sb.table("disponibilidad_docentes")
+                 .select("*, materias(nombre)")
+                 .order("fecha", desc=True)
+                 .order("hora_inicio", desc=True)
+                 .execute())
+        todos = res.data or []
+        resultado = []
+        cache_doc = {}
+        for s in todos:
+            m = s.get("materias", {})
+            if isinstance(m, list): m = m[0] if m else {}
+            s["materia_nombre"] = m.get("nombre", "—") if m else "—"
+            s["hora_inicio"]    = str(s.get("hora_inicio",""))[:5]
+            s["hora_fin"]       = str(s.get("hora_fin",""))[:5]
+            s["cupos_libres"]   = s.get("cupos", 8) - s.get("cupos_usados", 0)
+
+            # Nombre del docente
+            did = s.get("docente_id","")
+            if did not in cache_doc:
+                cache_doc[did] = _get_nombre(did)
+            info = cache_doc[did]
+            s["docente_nombre"] = f"{info.get('nombre','')} {info.get('apellido','')}".strip() or "—"
+
+            # Alumnos del slot
+            ses_res = (sb.table("sesiones_tutoria")
+                         .select("id, alumno_id, estado, asistencia, materia, descripcion")
+                         .eq("disponibilidad_id", s["id"])
+                         .neq("estado", "Cancelada")
+                         .execute())
+            alumnos = []
+            for ses in (ses_res.data or []):
+                info_a = _get_nombre(ses.get("alumno_id",""))
+                ses["alumno_nombre"]  = f"{info_a.get('nombre','')} {info_a.get('apellido','')}".strip() or "—"
+                ses["alumno_control"] = info_a.get("numero_control") or "—"
+                alumnos.append(ses)
+
+            s["alumnos"] = alumnos
+            resultado.append(s)
+
+        return resultado
+    except Exception as e:
+        st.error(f"Error al obtener slots globales: {e}")
+        return []
+
 def eliminar_usuario(user_id: str) -> bool:
     sb_admin = get_supabase_admin()
     try:
