@@ -38,7 +38,7 @@ def fmt_fecha(iso_str):
 st.markdown(f"""
 <div class="dash-header">
     <div><h2>📚 Panel del Docente <span class="role-tag">Docente Tutor</span></h2></div>
-    <div style="color:#5b6e8c; font-size:0.85rem;">
+    <div class="user-info-txt">
         {perfil['nombre']} {perfil['apellido']} · {perfil.get('departamento','—')}
     </div>
 </div>
