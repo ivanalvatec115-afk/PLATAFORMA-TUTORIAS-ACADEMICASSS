@@ -1,5 +1,5 @@
 """
-app.py — Punto de entrada de SisTutor
+app.py — Punto de entrada de Plataforma de Tutorías Académicas - ITMH
 Plataforma de Tutorias Academicas · Instituto Tecnologico de Matehuala
 """
 import streamlit as st
@@ -8,7 +8,7 @@ from utils.auth import login, get_current_rol
 from utils.supabase_client import get_supabase, SUPABASE_URL
 
 st.set_page_config(
-    page_title="SisTutor · Tutorías Académicas",
+    page_title="Plataforma de Tutorías Académicas - ITMH",
     page_icon="🎓",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -38,17 +38,18 @@ with col_brand:
     st.markdown("""
     <div class="login-brand">
         <div style="font-size:3.5rem; margin-bottom:1.2rem;">🎓</div>
-        <h1>SisTutor</h1>
-        <p>Plataforma centralizada para gestionar disponibilidad,
+        <h1 style="color:#ffffff !important;">Plataforma de Tutorías Académicas - ITMH</h1>
+        <p style="color:#ffffff !important; font-size:0.95rem; line-height:1.7; font-weight:500;">
+        Plataforma centralizada para gestionar disponibilidad,
         agendar sesiones y dar seguimiento académico a las tutorías
         del Instituto Tecnológico de Matehuala.</p>
-        <div class="feature">✅ Gestión de disponibilidad docente</div>
-        <div class="feature">📅 Agendamiento de sesiones</div>
-        <div class="feature">📊 Reportes y estadísticas</div>
-        <div class="feature">🔔 Control de asistencia</div>
+        <div class="feature" style="color:#ffffff !important;">✅ Gestión de disponibilidad docente</div>
+        <div class="feature" style="color:#ffffff !important;">📅 Agendamiento de sesiones</div>
+        <div class="feature" style="color:#ffffff !important;">📊 Reportes y estadísticas</div>
+        <div class="feature" style="color:#ffffff !important;">🔔 Control de asistencia</div>
         <div style="margin-top:2rem; padding-top:1.2rem;
                     border-top:1px solid rgba(255,255,255,0.2);
-                    font-size:0.78rem; opacity:0.7;">
+                    font-size:0.78rem; color:#ffffff !important; opacity:0.7;">
             Instituto Tecnológico de Matehuala<br>
             Ingeniería en Sistemas Computacionales · 6SA
         </div>
