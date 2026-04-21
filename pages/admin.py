@@ -13,6 +13,7 @@ from utils.db import (
     crear_usuario_completo, eliminar_usuario,
     get_materias, get_materias_docente,
     asignar_materia_docente, quitar_materia_docente,
+    cambiar_password_usuario,
 )
 from components.sidebar import render_sidebar
 
@@ -96,36 +97,73 @@ with tab_usuarios:
             sel = st.selectbox("Selecciona usuario a editar",
                                list(opciones_usr.keys()), key="sel_edit")
             u   = opciones_usr[sel]
+            rol_actual = u.get("rol", "alumno")
 
+            # ── Formulario datos generales ──
             with st.form("form_editar_usuario"):
                 c1, c2 = st.columns(2)
                 with c1:
                     e_nombre   = st.text_input("Nombre(s)",  value=u.get("nombre",""))
                     e_correo   = st.text_input("Correo",     value=u.get("correo",""))
-                    e_control  = st.text_input("Nº Control", value=u.get("numero_control","") or "")
+                    # Solo mostrar nº control si es alumno
+                    e_control = None
+                    if rol_actual == "alumno":
+                        e_control = st.text_input("Nº Control",
+                                                  value=u.get("numero_control","") or "")
                 with c2:
                     e_apellido = st.text_input("Apellidos",  value=u.get("apellido",""))
                     e_rol      = st.selectbox("Rol",
                                              ["alumno","docente","administrador"],
-                                             index=["alumno","docente","administrador"].index(u.get("rol","alumno")))
-                    e_depto    = st.text_input("Departamento", value=u.get("departamento","") or "")
-                e_activo   = st.toggle("Usuario activo", value=u.get("activo", True))
-                guardar    = st.form_submit_button("💾 Guardar cambios", type="primary",
-                                                   use_container_width=True)
+                                             index=["alumno","docente","administrador"].index(rol_actual))
+                    # Solo mostrar departamento si NO es alumno
+                    e_depto = None
+                    if rol_actual != "alumno":
+                        e_depto = st.text_input("Departamento",
+                                                value=u.get("departamento","") or "")
+                e_activo = st.toggle("Usuario activo", value=u.get("activo", True))
+                guardar  = st.form_submit_button("💾 Guardar cambios", type="primary",
+                                                 use_container_width=True)
 
             if guardar:
-                ok = actualizar_usuario(u["id"], {
-                    "nombre":         e_nombre,
-                    "apellido":       e_apellido,
-                    "correo":         e_correo,
-                    "rol":            e_rol,
-                    "numero_control": e_control or None,
-                    "departamento":   e_depto or None,
-                    "activo":         e_activo,
-                })
+                datos = {
+                    "nombre":   e_nombre,
+                    "apellido": e_apellido,
+                    "correo":   e_correo,
+                    "rol":      e_rol,
+                    "activo":   e_activo,
+                }
+                if e_control is not None:
+                    datos["numero_control"] = e_control or None
+                if e_depto is not None:
+                    datos["departamento"] = e_depto or None
+                ok = actualizar_usuario(u["id"], datos)
                 if ok:
-                    st.success("✅ Usuario actualizado.")
+                    st.success("✅ Datos actualizados.")
                     st.rerun()
+
+            # ── Cambiar contraseña (formulario separado) ──
+            st.divider()
+            st.markdown("**🔑 Cambiar contraseña**")
+            with st.form("form_pass_usuario"):
+                nueva_pass  = st.text_input("Nueva contraseña", type="password",
+                                            key="nueva_pass_input")
+                nueva_pass2 = st.text_input("Confirmar contraseña", type="password",
+                                            key="nueva_pass2_input")
+                cambiar_pass = st.form_submit_button("🔑 Cambiar contraseña",
+                                                     use_container_width=True)
+            if cambiar_pass:
+                if not nueva_pass or not nueva_pass2:
+                    st.error("Completa ambos campos de contraseña.")
+                elif nueva_pass != nueva_pass2:
+                    st.error("Las contraseñas no coinciden.")
+                elif len(nueva_pass) < 6:
+                    st.error("La contraseña debe tener al menos 6 caracteres.")
+                else:
+                    ok, msg = cambiar_password_usuario(u["id"], nueva_pass)
+                    if ok:
+                        st.success("✅ Contraseña actualizada correctamente.")
+                    else:
+                        st.error(f"Error: {msg}")
 
     st.markdown("</div>", unsafe_allow_html=True)
 
