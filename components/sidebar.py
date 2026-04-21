@@ -42,7 +42,7 @@ def render_sidebar():
         <hr style="border-color:rgba(255,255,255,0.15); margin: 0.8rem 0;">
         """, unsafe_allow_html=True)
 
-        st.markdown("### 🎓 TutorIA")
+        st.markdown("### 🎓 SisTutor")
 
         # Menú según rol
         if rol == "alumno":
@@ -55,7 +55,7 @@ def render_sidebar():
         st.markdown("<hr style='border-color:rgba(255,255,255,0.15); margin-top:auto;'>",
                     unsafe_allow_html=True)
 
-        if st.button("🚪 Cerrar sesión", use_container_width=True):
+        if st.button("🚪 Cerrar sesión", use_container_width=True, type="secondary"):
             logout()
             st.switch_page("app.py")
 
