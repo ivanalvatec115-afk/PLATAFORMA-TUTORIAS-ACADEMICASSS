@@ -1,5 +1,5 @@
 """
-utils/styles.py — TutorIA
+utils/styles.py — SisTutor
 """
 
 MAIN_CSS = """
@@ -63,7 +63,7 @@ html, body, [class*="css"] {
     color: #a8c8e8 !important;
 }
 .login-brand p * {
-    color: #b8d4ea !important;
+    color: #ffffff !important;
 }
 .login-brand .feature * {
     color: #d0e8f7 !important;
@@ -87,6 +87,18 @@ html, body, [class*="css"] {
 }
 [data-testid="stSidebar"] .stButton > button:hover {
     background: rgba(255,255,255,0.22) !important;
+}
+[data-testid="stSidebar"] .stButton > button[kind="secondary"] {
+    background: #ffffff !important;
+    color: #0d2137 !important;
+    border: none !important;
+    font-weight: 700 !important;
+}
+[data-testid="stSidebar"] .stButton > button[kind="secondary"] * {
+    color: #0d2137 !important;
+}
+[data-testid="stSidebar"] .stButton > button[kind="secondary"]:hover {
+    background: #e8f0f7 !important;
 }
 
 /* ══════════════════════════════════
