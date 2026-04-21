@@ -1,6 +1,6 @@
 """
 pages/alumno.py
-Dashboard del Alumno — SisTutor
+Dashboard del Alumno — Plataforma de Tutorías Académicas - ITMH
 """
 import streamlit as st
 from datetime import datetime
@@ -14,7 +14,7 @@ from utils.db import (
 )
 from components.sidebar import render_sidebar
 
-st.set_page_config(page_title="SisTutor · Alumno", page_icon="🎓", layout="wide")
+st.set_page_config(page_title="Plataforma de Tutorías Académicas - ITMH · Alumno", page_icon="🎓", layout="wide")
 inject_css()
 require_auth()
 
