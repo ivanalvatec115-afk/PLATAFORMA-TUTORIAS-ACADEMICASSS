@@ -9,11 +9,12 @@ from utils.styles import inject_css, estado_badge
 from utils.auth import require_auth, get_current_perfil, get_current_rol
 from utils.db import (
     get_slots_con_alumnos_docente,
-    get_todas_sesiones, get_todos_usuarios, actualizar_usuario,
+    get_slots_todos_docentes,
+    get_todas_sesiones, get_todos_usuarios,
+    actualizar_usuario_completo,
     crear_usuario_completo, eliminar_usuario,
     get_materias, get_materias_docente,
     asignar_materia_docente, quitar_materia_docente,
-    cambiar_password_usuario,
 )
 from components.sidebar import render_sidebar
 
@@ -26,7 +27,7 @@ if get_current_rol() != "administrador":
     st.error("Acceso restringido.")
     st.stop()
 
-perfil   = get_current_perfil()
+perfil = get_current_perfil()
 render_sidebar()
 
 
@@ -35,6 +36,14 @@ def fmt_fecha(iso_str):
         return datetime.fromisoformat(iso_str.replace("Z", "+00:00")).strftime("%d/%m/%Y %H:%M")
     except Exception:
         return iso_str or "—"
+
+
+def fmt_fecha_slot(fecha, h_ini, h_fin):
+    try:
+        d = datetime.strptime(fecha, "%Y-%m-%d").strftime("%d/%m/%Y")
+        return f"{d}  {str(h_ini)[:5]} – {str(h_fin)[:5]}"
+    except Exception:
+        return f"{fecha} {h_ini}–{h_fin}"
 
 
 def safe_to_datetime(series):
@@ -76,11 +85,12 @@ tab_usuarios, tab_nuevo, tab_materias, tab_reportes, tab_sesiones = st.tabs([
 # TAB: GESTIONAR USUARIOS
 # ══════════════════════════════════════════════════════════
 with tab_usuarios:
-    st.markdown("<div class='tutoria-card'><h3>👥 Editar datos de usuario</h3>", unsafe_allow_html=True)
+    st.markdown("<div class='tutoria-card'><h3>👥 Editar datos de usuario</h3>",
+                unsafe_allow_html=True)
 
-    filtro_rol = st.selectbox("Filtrar por rol",
-                              ["Todos", "alumno", "docente", "administrador"],
-                              key="fil_rol_edit")
+    filtro_rol    = st.selectbox("Filtrar por rol",
+                                 ["Todos","alumno","docente","administrador"],
+                                 key="fil_rol_edit")
     usr_filtrados = (usuarios if filtro_rol == "Todos"
                      else [u for u in usuarios if u["rol"] == filtro_rol])
 
@@ -94,38 +104,64 @@ with tab_usuarios:
         if not opciones_usr:
             st.info("No hay otros usuarios en este rol.")
         else:
-            sel = st.selectbox("Selecciona usuario a editar",
-                               list(opciones_usr.keys()), key="sel_edit")
-            u   = opciones_usr[sel]
+            sel        = st.selectbox("Selecciona usuario", list(opciones_usr.keys()),
+                                      key="sel_edit")
+            u          = opciones_usr[sel]
             rol_actual = u.get("rol", "alumno")
 
-            # ── Formulario datos generales ──
+            # ── Un único formulario con datos + contraseña ──
             with st.form("form_editar_usuario"):
+                st.markdown("**📋 Datos del usuario**")
                 c1, c2 = st.columns(2)
                 with c1:
-                    e_nombre   = st.text_input("Nombre(s)",  value=u.get("nombre",""))
-                    e_correo   = st.text_input("Correo",     value=u.get("correo",""))
-                    # Solo mostrar nº control si es alumno
-                    e_control = None
+                    e_nombre  = st.text_input("Nombre(s)",  value=u.get("nombre",""))
+                    e_correo  = st.text_input("Correo institucional", value=u.get("correo",""))
                     if rol_actual == "alumno":
                         e_control = st.text_input("Nº Control",
                                                   value=u.get("numero_control","") or "")
+                        e_depto   = None
+                    else:
+                        e_depto   = st.text_input("Departamento",
+                                                  value=u.get("departamento","") or "")
+                        e_control = None
                 with c2:
-                    e_apellido = st.text_input("Apellidos",  value=u.get("apellido",""))
-                    e_rol      = st.selectbox("Rol",
-                                             ["alumno","docente","administrador"],
-                                             index=["alumno","docente","administrador"].index(rol_actual))
-                    # Solo mostrar departamento si NO es alumno
-                    e_depto = None
-                    if rol_actual != "alumno":
-                        e_depto = st.text_input("Departamento",
-                                                value=u.get("departamento","") or "")
-                e_activo = st.toggle("Usuario activo", value=u.get("activo", True))
-                guardar  = st.form_submit_button("💾 Guardar cambios", type="primary",
-                                                 use_container_width=True)
+                    e_apellido = st.text_input("Apellidos", value=u.get("apellido",""))
+                    e_rol      = st.selectbox(
+                        "Rol", ["alumno","docente","administrador"],
+                        index=["alumno","docente","administrador"].index(rol_actual)
+                    )
+                    e_activo   = st.toggle("Usuario activo", value=u.get("activo", True))
+
+                st.divider()
+                st.markdown("**🔑 Cambiar contraseña** *(dejar en blanco para no cambiar)*")
+                cp1, cp2 = st.columns(2)
+                with cp1:
+                    e_pass1 = st.text_input("Nueva contraseña", type="password",
+                                            key="ep1")
+                with cp2:
+                    e_pass2 = st.text_input("Confirmar contraseña", type="password",
+                                            key="ep2")
+
+                guardar = st.form_submit_button("💾 Guardar todos los cambios",
+                                                type="primary", use_container_width=True)
 
             if guardar:
-                datos = {
+                # Validar contraseña si se ingresó
+                nueva_pass = None
+                if e_pass1 or e_pass2:
+                    if e_pass1 != e_pass2:
+                        st.error("Las contraseñas no coinciden.")
+                        st.stop()
+                    elif len(e_pass1) < 6:
+                        st.error("La contraseña debe tener al menos 6 caracteres.")
+                        st.stop()
+                    else:
+                        nueva_pass = e_pass1
+
+                # Detectar si cambió el correo
+                nuevo_correo = e_correo if e_correo != u.get("correo","") else None
+
+                datos_perfil = {
                     "nombre":   e_nombre,
                     "apellido": e_apellido,
                     "correo":   e_correo,
@@ -133,49 +169,40 @@ with tab_usuarios:
                     "activo":   e_activo,
                 }
                 if e_control is not None:
-                    datos["numero_control"] = e_control or None
+                    datos_perfil["numero_control"] = e_control or None
                 if e_depto is not None:
-                    datos["departamento"] = e_depto or None
-                ok = actualizar_usuario(u["id"], datos)
-                if ok:
-                    st.success("✅ Datos actualizados.")
-                    st.rerun()
+                    datos_perfil["departamento"] = e_depto or None
 
-            # ── Cambiar contraseña (formulario separado) ──
-            st.divider()
-            st.markdown("**🔑 Cambiar contraseña**")
-            with st.form("form_pass_usuario"):
-                nueva_pass  = st.text_input("Nueva contraseña", type="password",
-                                            key="nueva_pass_input")
-                nueva_pass2 = st.text_input("Confirmar contraseña", type="password",
-                                            key="nueva_pass2_input")
-                cambiar_pass = st.form_submit_button("🔑 Cambiar contraseña",
-                                                     use_container_width=True)
-            if cambiar_pass:
-                if not nueva_pass or not nueva_pass2:
-                    st.error("Completa ambos campos de contraseña.")
-                elif nueva_pass != nueva_pass2:
-                    st.error("Las contraseñas no coinciden.")
-                elif len(nueva_pass) < 6:
-                    st.error("La contraseña debe tener al menos 6 caracteres.")
+                ok, msg = actualizar_usuario_completo(
+                    u["id"], datos_perfil,
+                    nuevo_correo=nuevo_correo,
+                    nueva_password=nueva_pass
+                )
+                if ok:
+                    cambios_txt = "✅ Datos actualizados."
+                    if nuevo_correo:
+                        cambios_txt += " Correo actualizado en Auth."
+                    if nueva_pass:
+                        cambios_txt += " Contraseña actualizada."
+                    st.success(cambios_txt)
+                    st.rerun()
                 else:
-                    ok, msg = cambiar_password_usuario(u["id"], nueva_pass)
-                    if ok:
-                        st.success("✅ Contraseña actualizada correctamente.")
-                    else:
-                        st.error(f"Error: {msg}")
+                    st.error(f"Error al guardar: {msg}")
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # Tabla de todos los usuarios
-    st.markdown("<div class='tutoria-card'><h3>📋 Lista de usuarios</h3>", unsafe_allow_html=True)
+    # Tabla resumen
+    st.markdown("<div class='tutoria-card'><h3>📋 Lista de usuarios</h3>",
+                unsafe_allow_html=True)
     filas = ""
     for u in usuarios:
         activo_b = ('<span class="badge-green">Activo</span>' if u.get("activo")
                     else '<span class="badge-red">Inactivo</span>')
-        rol_b = {"alumno": '<span class="badge-blue">Alumno</span>',
-                 "docente": '<span class="badge-gray">Docente</span>',
-                 "administrador": '<span class="badge-green">Admin</span>'}.get(u["rol"], u["rol"])
+        rol_b = {
+            "alumno":        '<span class="badge-blue">Alumno</span>',
+            "docente":       '<span class="badge-gray">Docente</span>',
+            "administrador": '<span class="badge-green">Admin</span>',
+        }.get(u["rol"], u["rol"])
         extra = u.get("numero_control") or u.get("departamento") or "—"
         filas += f"""<tr>
             <td>{u['nombre']} {u['apellido']}</td>
@@ -195,18 +222,19 @@ with tab_usuarios:
 # TAB: NUEVO USUARIO
 # ══════════════════════════════════════════════════════════
 with tab_nuevo:
-    st.markdown("<div class='tutoria-card'><h3>➕ Registrar nuevo usuario</h3>", unsafe_allow_html=True)
+    st.markdown("<div class='tutoria-card'><h3>➕ Registrar nuevo usuario</h3>",
+                unsafe_allow_html=True)
     st.info("El usuario se creará en Supabase Auth y quedará activo de inmediato.")
 
     with st.form("form_nuevo_usuario", clear_on_submit=True):
         c1, c2 = st.columns(2)
         with c1:
-            n_nombre  = st.text_input("Nombre(s) *")
-            n_correo  = st.text_input("Correo institucional *")
-            n_pass    = st.text_input("Contraseña * (mín. 6 caracteres)", type="password")
+            n_nombre = st.text_input("Nombre(s) *")
+            n_correo = st.text_input("Correo institucional *")
+            n_pass   = st.text_input("Contraseña * (mín. 6 caracteres)", type="password")
         with c2:
             n_apellido = st.text_input("Apellidos *")
-            n_rol      = st.selectbox("Rol *", ["alumno", "docente", "administrador"])
+            n_rol      = st.selectbox("Rol *", ["alumno","docente","administrador"])
             n_pass2    = st.text_input("Confirmar contraseña *", type="password")
 
         n_control = n_depto = None
@@ -232,10 +260,10 @@ with tab_nuevo:
                     n_rol, n_control, n_depto
                 )
             if ok:
-                st.success(f"✅ Usuario '{n_nombre} {n_apellido}' creado y activado correctamente.")
+                st.success(f"✅ Usuario '{n_nombre} {n_apellido}' creado y activado.")
                 st.rerun()
             else:
-                st.error(f"Error al crear usuario: {resultado}")
+                st.error(f"Error: {resultado}")
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -255,24 +283,21 @@ with tab_materias:
         sel_doc_label  = st.selectbox("Selecciona docente", list(opciones_doc.keys()),
                                       key="sel_doc_mat")
         doc_sel        = opciones_doc[sel_doc_label]
-
         mat_asignadas  = get_materias_docente(doc_sel["id"])
         ids_asignados  = {m["id"] for m in mat_asignadas}
 
         col_a, col_b = st.columns(2)
-
         with col_a:
             st.markdown("**Materias asignadas:**")
             if not mat_asignadas:
                 st.caption("Ninguna asignada.")
             for m in mat_asignadas:
-                c1, c2 = st.columns([3, 1])
-                with c1:
+                cm1, cm2 = st.columns([3, 1])
+                with cm1:
                     st.markdown(f"<small style='color:#0d2137;'>📖 {m['nombre']}</small>",
                                 unsafe_allow_html=True)
-                with c2:
-                    if st.button("✕", key=f"quitar_{doc_sel['id']}_{m['id']}",
-                                 help="Quitar materia"):
+                with cm2:
+                    if st.button("✕", key=f"quitar_{doc_sel['id']}_{m['id']}"):
                         quitar_materia_docente(doc_sel["id"], m["id"])
                         st.rerun()
 
@@ -280,7 +305,7 @@ with tab_materias:
             st.markdown("**Agregar materia:**")
             disponibles = [m for m in todas_materias if m["id"] not in ids_asignados]
             if not disponibles:
-                st.caption("Ya tiene todas las materias asignadas.")
+                st.caption("Ya tiene todas las materias.")
             else:
                 mat_add = st.selectbox("Materia a agregar",
                                        [m["nombre"] for m in disponibles],
@@ -303,10 +328,11 @@ with tab_reportes:
         st.markdown("<div class='tutoria-card'><h3>📊 Sesiones por estado</h3>",
                     unsafe_allow_html=True)
         if sesiones:
-            df_e = pd.DataFrame(sesiones)[["estado"]].value_counts().reset_index().rename(columns={"count":"cantidad"})
-            fig  = px.pie(df_e, names="estado", values="cantidad",
-                          color_discrete_sequence=["#1a6fa8","#155f2e","#8b1a1a","#7a3a00"],
-                          hole=0.45)
+            df_e = (pd.DataFrame(sesiones)[["estado"]].value_counts()
+                    .reset_index().rename(columns={"count": "cantidad"}))
+            fig = px.pie(df_e, names="estado", values="cantidad",
+                         color_discrete_sequence=["#1a6fa8","#155f2e","#8b1a1a","#7a3a00"],
+                         hole=0.45)
             fig.update_layout(margin=dict(t=10,b=10,l=10,r=10), height=280)
             st.plotly_chart(fig, use_container_width=True)
         else:
@@ -317,7 +343,8 @@ with tab_reportes:
         st.markdown("<div class='tutoria-card'><h3>📚 Sesiones por docente</h3>",
                     unsafe_allow_html=True)
         if sesiones:
-            df_d = pd.DataFrame(sesiones)[["docente_nombre"]].value_counts().reset_index().rename(columns={"count":"sesiones"})
+            df_d = (pd.DataFrame(sesiones)[["docente_nombre"]].value_counts()
+                    .reset_index().rename(columns={"count": "sesiones"}))
             fig2 = px.bar(df_d, x="sesiones", y="docente_nombre", orientation="h",
                           color_discrete_sequence=["#0d2137"])
             fig2.update_layout(margin=dict(t=10,b=10,l=10,r=10),
@@ -327,7 +354,8 @@ with tab_reportes:
             st.info("Sin datos.")
         st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown("<div class='tutoria-card'><h3>📈 Sesiones por mes</h3>", unsafe_allow_html=True)
+    st.markdown("<div class='tutoria-card'><h3>📈 Sesiones por mes</h3>",
+                unsafe_allow_html=True)
     if sesiones:
         df_all = pd.DataFrame(sesiones)
         df_all["fecha_dt"] = safe_to_datetime(df_all["fecha_hora"])
@@ -348,48 +376,91 @@ with tab_reportes:
                            mime="text/csv")
 
 # ══════════════════════════════════════════════════════════
-# TAB: TODAS LAS SESIONES
+# TAB: TODAS LAS SESIONES — agrupadas por bloque (igual que docente)
 # ══════════════════════════════════════════════════════════
 with tab_sesiones:
-    st.markdown("<div class='tutoria-card'><h3>📋 Registro completo</h3>", unsafe_allow_html=True)
+    st.markdown("<div class='tutoria-card'><h3>📋 Todas las sesiones por bloque</h3>",
+                unsafe_allow_html=True)
 
-    c1, c2 = st.columns(2)
-    with c1:
-        f_estado = st.selectbox("Estado",
-                                ["Todos","Programada","Completada","Cancelada","No asistió"],
-                                key="fil_est")
-    with c2:
-        doc_names = ["Todos"] + sorted({s.get("docente_nombre","") for s in sesiones})
-        f_doc     = st.selectbox("Docente", doc_names, key="fil_doc2")
-
-    filtradas = sesiones
-    if f_estado != "Todos":
-        filtradas = [s for s in filtradas if s["estado"] == f_estado]
-    if f_doc != "Todos":
-        filtradas = [s for s in filtradas if s.get("docente_nombre") == f_doc]
-
-    if not filtradas:
-        st.info("Sin sesiones con los filtros aplicados.")
-    else:
-        filas = ""
-        for s in filtradas:
-            fh  = fmt_fecha(s.get("fecha_hora",""))
-            bdg = estado_badge(s["estado"])
-            filas += f"""<tr>
-                <td>{fh}</td>
-                <td>{s.get('alumno_nombre','—')}</td>
-                <td>{s.get('alumno_control','—')}</td>
-                <td>{s.get('docente_nombre','—')}</td>
-                <td>{s.get('materia','—')}</td>
-                <td>{bdg}</td>
-            </tr>"""
-        st.markdown(f"""
-        <table class="hist-table">
-            <thead><tr>
-                <th>Fecha</th><th>Alumno</th><th>Control</th>
-                <th>Docente</th><th>Materia</th><th>Estado</th>
-            </tr></thead>
-            <tbody>{filas}</tbody>
-        </table>""", unsafe_allow_html=True)
+    # Filtros
+    doc_names  = ["Todos"] + sorted({s.get("docente_nombre","") for s in sesiones if s.get("docente_nombre")})
+    mat_names  = ["Todas"] + sorted({s.get("materia","") for s in sesiones if s.get("materia")})
+    cf1, cf2, cf3 = st.columns(3)
+    with cf1:
+        f_doc = st.selectbox("Docente", doc_names, key="fil_doc_slot")
+    with cf2:
+        f_mat = st.selectbox("Materia", mat_names, key="fil_mat_slot")
+    with cf3:
+        f_solo = st.selectbox("Período", ["Todos", "Solo pasados", "Solo futuros"],
+                              key="fil_periodo")
 
     st.markdown("</div>", unsafe_allow_html=True)
+
+    # Cargar slots agrupados
+    slots_admin = get_slots_todos_docentes()
+
+    # Aplicar filtros
+    ahora = datetime.now()
+    if f_doc != "Todos":
+        slots_admin = [s for s in slots_admin if s.get("docente_nombre") == f_doc]
+    if f_mat != "Todas":
+        slots_admin = [s for s in slots_admin if s.get("materia_nombre") == f_mat]
+    if f_solo == "Solo pasados":
+        slots_admin = [s for s in slots_admin
+                       if datetime.strptime(f"{s['fecha']} {str(s['hora_fin'])[:5]}", "%Y-%m-%d %H:%M") < ahora]
+    elif f_solo == "Solo futuros":
+        slots_admin = [s for s in slots_admin
+                       if datetime.strptime(f"{s['fecha']} {str(s['hora_fin'])[:5]}", "%Y-%m-%d %H:%M") >= ahora]
+
+    if not slots_admin:
+        st.info("No hay bloques con los filtros seleccionados.")
+    else:
+        for slot in slots_admin:
+            titulo  = fmt_fecha_slot(slot["fecha"], slot["hora_inicio"], slot["hora_fin"])
+            mat     = slot.get("materia_nombre", "—")
+            doc     = slot.get("docente_nombre", "—")
+            usados  = slot.get("cupos_usados", 0)
+            cupos   = slot.get("cupos", 8)
+            alumnos = slot.get("alumnos", [])
+
+            # Estado del bloque
+            try:
+                fin_dt = datetime.strptime(
+                    f"{slot['fecha']} {str(slot['hora_fin'])[:5]}", "%Y-%m-%d %H:%M"
+                )
+                pasado = fin_dt < ahora
+            except Exception:
+                pasado = False
+
+            todos_reg = all(a.get("asistencia") is not None for a in alumnos) if alumnos else False
+            if pasado and alumnos:
+                estado_bloque = "✅ Completado" if todos_reg else "⏳ Pendiente asistencia"
+            elif not alumnos:
+                estado_bloque = "⬜ Sin reservas"
+            else:
+                estado_bloque = "🔵 Próximo"
+
+            with st.expander(
+                f"📆 {titulo}  ·  📖 {mat}  ·  👤 {doc}  ·  {estado_bloque}  ·  👥 {usados}/{cupos}"
+            ):
+                if not alumnos:
+                    st.caption("Ningún alumno ha reservado este bloque.")
+                else:
+                    filas = ""
+                    for a in alumnos:
+                        bdg = estado_badge(a.get("estado", "Programada"))
+                        asist = "✅" if a.get("asistencia") is True else ("❌" if a.get("asistencia") is False else "—")
+                        filas += f"""<tr>
+                            <td>{a.get('alumno_nombre','—')}</td>
+                            <td>{a.get('alumno_control','—')}</td>
+                            <td>{bdg}</td>
+                            <td style="text-align:center;">{asist}</td>
+                        </tr>"""
+                    st.markdown(f"""
+                    <table class="hist-table">
+                        <thead><tr>
+                            <th>Alumno</th><th>No. Control</th>
+                            <th>Estado</th><th style="text-align:center;">Asistencia</th>
+                        </tr></thead>
+                        <tbody>{filas}</tbody>
+                    </table>""", unsafe_allow_html=True)
