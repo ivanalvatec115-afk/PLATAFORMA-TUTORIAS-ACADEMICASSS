@@ -52,13 +52,6 @@ def enviar_credenciales(correo_destino: str, nombre: str,
                     desde la sección de configuración de tu perfil.
                 </p>
 
-                <div style="background:#eef2ff; border-radius:8px; padding:14px; margin:16px 0; text-align:center;">
-                    <p style="margin:0; color:#0d2137; font-size:0.88rem;">
-                        🌐 Accede a la plataforma en:<br>
-                        <strong>plataforma-tutorias-academicasss-jze9ktp9wvmmegae8tpv2i.streamlit.app</strong>
-                    </p>
-                </div>
-
                 <hr style="border:none; border-top:1px solid #e2e8f0; margin:20px 0;">
                 <p style="color:#5a7080; font-size:0.78rem; text-align:center; margin:0;">
                     Este correo fue enviado automáticamente por la Plataforma de Tutorías Académicas.<br>
@@ -74,7 +67,6 @@ def enviar_credenciales(correo_destino: str, nombre: str,
             f"USUARIO (correo institucional): {correo_usuario}\n"
             f"CONTRASEÑA TEMPORAL: {password}\n\n"
             f"IMPORTANTE: El correo institucional es tu nombre de usuario para iniciar sesión.\n\n"
-            f"Plataforma: plataforma-tutorias-academicasss-jze9ktp9wvmmegae8tpv2i.streamlit.app\n\n"
             f"Por seguridad, cambia tu contraseña después de tu primer inicio de sesión.\n\n"
             f"Instituto Tecnológico de Matehuala"
         )
