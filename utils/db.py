@@ -297,9 +297,10 @@ def cancelar_slot_docente(disponibilidad_id: str) -> bool:
 
 
 def get_sesiones_alumno(alumno_id: str) -> list[dict]:
-    sb = get_supabase()
+    # Usa admin para evitar RLS que pudiera filtrar filas actualizadas por docente
+    sb_admin = get_supabase_admin()
     try:
-        res = (sb.table("sesiones_tutoria")
+        res = (sb_admin.table("sesiones_tutoria")
                  .select("id, alumno_id, docente_id, disponibilidad_id, fecha_hora, "
                          "materia, descripcion, estado, asistencia, notas_docente, created_at")
                  .eq("alumno_id", alumno_id)
@@ -311,10 +312,12 @@ def get_sesiones_alumno(alumno_id: str) -> list[dict]:
 
 
 def get_sesiones_docente(docente_id: str) -> list[dict]:
-    sb = get_supabase()
+    sb_admin = get_supabase_admin()
     try:
-        res = (sb.table("sesiones_tutoria")
-                 .select("*").eq("docente_id", docente_id)
+        res = (sb_admin.table("sesiones_tutoria")
+                 .select("id, alumno_id, docente_id, disponibilidad_id, fecha_hora, "
+                         "materia, descripcion, estado, asistencia, notas_docente, created_at")
+                 .eq("docente_id", docente_id)
                  .order("fecha_hora", desc=True).execute())
         return _enriquecer_sesiones_docente(res.data or [])
     except Exception as e:
@@ -405,13 +408,18 @@ def get_alumnos_por_slot(disponibilidad_id: str) -> list[dict]:
 
 
 def registrar_asistencia(sesion_id: str, asistio: bool, notas: str = "") -> bool:
-    sb = get_supabase()
+    """Usa service_role para evitar bloqueo RLS al actualizar estado."""
+    sb_admin = get_supabase_admin()
     try:
-        sb.table("sesiones_tutoria").update({
+        res = sb_admin.table("sesiones_tutoria").update({
             "asistencia":    asistio,
             "estado":        "Completada" if asistio else "No asistió",
             "notas_docente": notas,
         }).eq("id", sesion_id).execute()
+
+        if not res.data:
+            st.error("No se pudo guardar la asistencia. Verifica que la sesión exista.")
+            return False
         return True
     except Exception as e:
         st.error(f"Error al registrar asistencia: {e}")
@@ -456,19 +464,23 @@ def crear_usuario_completo(nombre: str, apellido: str, correo: str,
                            password: str, rol: str,
                            numero_control: str = None,
                            departamento: str = None) -> tuple[bool, str]:
-    """Usa service_role para crear usuario real en Supabase Auth."""
+    """
+    Invita al usuario por email: Supabase envía un link de activación
+    al correo institucional. El usuario define su propia contraseña.
+    El parámetro `password` se ignora en este flujo.
+    """
     sb_admin = get_supabase_admin()
     try:
-        res = sb_admin.auth.admin.create_user({
-            "email":         correo,
-            "password":      password,
-            "email_confirm": True,
-            "user_metadata": {
-                "nombre":   nombre,
-                "apellido": apellido,
-                "rol":      rol,
+        res = sb_admin.auth.admin.invite_user_by_email(
+            correo,
+            options={
+                "data": {
+                    "nombre":   nombre,
+                    "apellido": apellido,
+                    "rol":      rol,
+                }
             }
-        })
+        )
         if res.user:
             sb_admin.table("perfiles").upsert({
                 "id":             res.user.id,
@@ -481,7 +493,7 @@ def crear_usuario_completo(nombre: str, apellido: str, correo: str,
                 "activo":         True,
             }).execute()
             return True, res.user.id
-        return False, "No se pudo crear el usuario."
+        return False, "No se pudo enviar la invitación."
     except Exception as e:
         return False, str(e)
 
