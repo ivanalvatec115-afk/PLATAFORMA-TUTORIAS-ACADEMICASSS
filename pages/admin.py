@@ -10,7 +10,7 @@ from utils.auth import require_auth, get_current_perfil, get_current_rol
 from utils.importacion import (
     leer_excel_alumnos, leer_excel_docentes,
     importar_alumnos, importar_docentes,
-    generar_correo_alumno, generar_correo_docente,
+    generar_correo_alumno, generar_correo_docente, generar_password,
 )
 from utils.reportes import (
     reporte_admin_excel, reporte_admin_pdf,
@@ -260,8 +260,8 @@ with tab_nuevo:
         key="nuevo_rol_selector"
     )
 
-    st.info("El usuario recibirá un correo con un link para activar su cuenta "
-            "y crear su propia contraseña.")
+    st.info("Se generará el correo institucional automáticamente y se enviará "
+            "una contraseña temporal al correo del usuario.")
 
     with st.form("form_nuevo_usuario", clear_on_submit=True):
         c1, c2 = st.columns(2)
@@ -270,8 +270,8 @@ with tab_nuevo:
             n_apellido = st.text_input("Apellidos *")
         with c2:
             st.markdown(
-                "<small style='color:#5a7080;'>El correo institucional se genera "
-                "automáticamente según el rol.</small>",
+                "<small style='color:#5a7080;'>El correo se genera automáticamente "
+                "y la contraseña se enviará por correo al usuario.</small>",
                 unsafe_allow_html=True
             )
 
@@ -290,7 +290,7 @@ with tab_nuevo:
                                      key="campo_depto_admin")
             n_control = None
 
-        crear = st.form_submit_button("📧 Enviar invitación", type="primary",
+        crear = st.form_submit_button("✅ Crear usuario", type="primary",
                                       use_container_width=True)
 
     n_pass = n_pass2 = ""
@@ -312,17 +312,18 @@ with tab_nuevo:
         elif n_rol in ["docente","administrador"] and not n_depto:
             st.error("El departamento es obligatorio.")
         else:
-            st.info(f"📧 Se enviará invitación a: **{correo_generado}**")
-            with st.spinner("Enviando invitación…"):
+            pwd_generado = generar_password()
+            st.info(f"📧 Correo: **{correo_generado}**")
+            with st.spinner("Creando usuario y enviando correo…"):
                 ok, resultado = crear_usuario_completo(
                     n_nombre.strip(), n_apellido.strip(),
-                    correo_generado, "",
+                    correo_generado, pwd_generado,
                     n_rol, n_control, n_depto
                 )
             if ok:
                 st.success(
-                    f"✅ Invitación enviada a **{correo_generado}**. "
-                    f"El usuario recibirá un link para crear su contraseña."
+                    f"✅ Usuario **{n_nombre} {n_apellido}** creado. "
+                    f"Se envió la contraseña temporal a **{correo_generado}**."
                 )
                 st.rerun()
             else:
