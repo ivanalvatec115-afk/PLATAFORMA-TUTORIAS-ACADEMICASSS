@@ -460,20 +460,23 @@ def actualizar_usuario(user_id: str, datos: dict) -> bool:
         return False
 
 
+APP_URL = "https://plataforma-tutorias-academicasss-jze9ktp9wvmmegae8tpv2i.streamlit.app"
+
 def crear_usuario_completo(nombre: str, apellido: str, correo: str,
                            password: str, rol: str,
                            numero_control: str = None,
                            departamento: str = None) -> tuple[bool, str]:
     """
-    Invita al usuario por email: Supabase envía un link de activación
-    al correo institucional. El usuario define su propia contraseña.
-    El parámetro `password` se ignora en este flujo.
+    Invita al usuario por email. Supabase envía un link que redirige
+    a la página /activar de la app donde el usuario crea su contraseña.
+    El parámetro password se ignora — el usuario define la suya al activar.
     """
     sb_admin = get_supabase_admin()
     try:
         res = sb_admin.auth.admin.invite_user_by_email(
             correo,
             options={
+                "redirect_to": f"{APP_URL}/activar",
                 "data": {
                     "nombre":   nombre,
                     "apellido": apellido,
