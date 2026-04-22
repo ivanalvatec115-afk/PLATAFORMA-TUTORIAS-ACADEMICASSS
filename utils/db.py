@@ -219,42 +219,31 @@ CUPOS_MAX = 8  # Máximo fijo de alumnos por bloque
 def agendar_sesion(alumno_id: str, docente_id: str,
                    disponibilidad_id: str, fecha_hora: str,
                    materia: str, descripcion: str) -> bool:
-    sb = get_supabase()
+    """
+    Llama a la función SQL agendar_sesion_segura que usa FOR UPDATE
+    para evitar condiciones de carrera y garantizar el límite de cupos.
+    """
+    sb = get_supabase_admin()
     try:
-        # Verificar reserva duplicada
-        if alumno_ya_reservo(alumno_id, disponibilidad_id):
-            st.error("Ya tienes una reserva activa en este horario.")
-            return False
-
-        # Contar reservas activas reales (fuente de verdad: sesiones_tutoria)
-        reservas = (sb.table("sesiones_tutoria")
-                      .select("id")
-                      .eq("disponibilidad_id", disponibilidad_id)
-                      .neq("estado", "Cancelada")
-                      .execute())
-        cupos_usados = len(reservas.data or [])
-
-        if cupos_usados >= CUPOS_MAX:
-            st.error(f"Este horario ya alcanzó el máximo de {CUPOS_MAX} alumnos.")
-            return False
-
-        sb.table("sesiones_tutoria").insert({
-            "alumno_id":         alumno_id,
-            "docente_id":        docente_id,
-            "disponibilidad_id": disponibilidad_id,
-            "fecha_hora":        fecha_hora,
-            "materia":           materia,
-            "descripcion":       descripcion,
-            "estado":            "Programada",
+        res = sb.rpc("agendar_sesion_segura", {
+            "p_alumno_id":          alumno_id,
+            "p_docente_id":         docente_id,
+            "p_disponibilidad_id":  disponibilidad_id,
+            "p_fecha_hora":         fecha_hora,
+            "p_materia":            materia,
+            "p_descripcion":        descripcion,
+            "p_cupos_max":          CUPOS_MAX,
         }).execute()
 
-        nuevo_usado = cupos_usados + 1
-        sb.table("disponibilidad_docentes").update({
-            "cupos_usados": nuevo_usado,
-            "cupos":        CUPOS_MAX,
-            "disponible":   nuevo_usado < CUPOS_MAX,
-        }).eq("id", disponibilidad_id).execute()
-        return True
+        resultado = res.data
+        if isinstance(resultado, list):
+            resultado = resultado[0] if resultado else {}
+
+        if resultado.get("ok"):
+            return True
+        else:
+            st.error(resultado.get("error", "No se pudo agendar la sesión."))
+            return False
     except Exception as e:
         st.error(f"Error al agendar sesión: {e}")
         return False
