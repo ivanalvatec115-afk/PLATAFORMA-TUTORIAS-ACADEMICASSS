@@ -10,6 +10,7 @@ from utils.auth import require_auth, get_current_perfil, get_current_rol
 from utils.importacion import (
     leer_excel_alumnos, leer_excel_docentes,
     importar_alumnos, importar_docentes,
+    generar_correo_alumno, generar_correo_docente, generar_password,
 )
 from utils.reportes import (
     reporte_admin_excel, reporte_admin_pdf,
@@ -259,27 +260,25 @@ with tab_nuevo:
         key="nuevo_rol_selector"
     )
 
+    st.info("Se enviará un link de activación al correo institucional del usuario. "
+            "El usuario definirá su propia contraseña al activar la cuenta.")
+
     with st.form("form_nuevo_usuario", clear_on_submit=True):
         c1, c2 = st.columns(2)
         with c1:
             n_nombre   = st.text_input("Nombre(s) *")
             n_apellido = st.text_input("Apellidos *")
-
         with c2:
-            # Punto 7: correo se genera automáticamente — solo mostramos preview
-            # El correo real se genera al crear
             st.markdown(
                 "<small style='color:#5a7080;'>El correo se genera automáticamente "
-                "como <b>nombre.apellido@itm.edu.mx</b></small>",
+                "según el rol y se muestra antes de confirmar.</small>",
                 unsafe_allow_html=True
             )
-            n_pass  = st.text_input("Contraseña * (mín. 6 caracteres)", type="password")
-            n_pass2 = st.text_input("Confirmar contraseña *", type="password")
+            # Espacio visual
+            st.markdown("<br>", unsafe_allow_html=True)
 
         st.divider()
 
-        # Punto 2: campos condicionales estables — cada rol tiene su propio widget
-        # con key único para evitar el bug de reutilización de widgets
         if n_rol == "alumno":
             n_control = st.text_input("Número de control *",
                                       key="campo_control_alumno")
@@ -288,46 +287,45 @@ with tab_nuevo:
             n_depto   = st.selectbox("Departamento *", DEPTOS_LIST,
                                      key="campo_depto_docente")
             n_control = None
-        else:  # administrador
+        else:
             n_depto   = st.selectbox("Departamento *", DEPTOS_LIST,
                                      key="campo_depto_admin")
             n_control = None
 
-        crear = st.form_submit_button("✅ Crear usuario", type="primary",
+        crear = st.form_submit_button("📧 Enviar invitación", type="primary",
                                       use_container_width=True)
 
-    if crear:
-        # Punto 7: generar correo automáticamente
-        primer_nombre   = n_nombre.strip().split()[0].lower() if n_nombre.strip() else ""
-        primer_apellido = n_apellido.strip().split()[0].lower() if n_apellido.strip() else ""
-        # Quitar acentos básicos
-        reemplazos = str.maketrans("áéíóúüñÁÉÍÓÚÜÑ","aeiouunAEIOUUN")
-        primer_nombre   = primer_nombre.translate(reemplazos)
-        primer_apellido = primer_apellido.translate(reemplazos)
-        correo_generado = f"{primer_nombre}.{primer_apellido}@itm.edu.mx"
+    # Variable dummy para compatibilidad con el flujo
+    n_pass = n_pass2 = ""
 
-        if not all([n_nombre, n_apellido, n_pass, n_pass2]):
-            st.error("Completa todos los campos obligatorios (*).")
+    if crear:
+        # Generar correo según rol y formato institucional real
+        if n_rol == "alumno":
+            correo_generado = generar_correo_alumno(n_control or "")
+            if not n_control:
+                st.error("El número de control es obligatorio para generar el correo del alumno.")
+                st.stop()
+        else:
+            correo_generado = generar_correo_docente(n_nombre, n_apellido)
+
+        if not all([n_nombre, n_apellido]):
+            st.error("Completa nombre y apellidos.")
         elif n_rol == "alumno" and not n_control:
             st.error("El número de control es obligatorio para alumnos.")
         elif n_rol in ["docente","administrador"] and not n_depto:
             st.error("El departamento es obligatorio.")
-        elif n_pass != n_pass2:
-            st.error("Las contraseñas no coinciden.")
-        elif len(n_pass) < 6:
-            st.error("La contraseña debe tener al menos 6 caracteres.")
         else:
-            st.info(f"📧 Correo generado: **{correo_generado}**")
-            with st.spinner("Creando usuario en Supabase…"):
+            st.info(f"📧 Correo que recibirá la invitación: **{correo_generado}**")
+            with st.spinner("Enviando invitación…"):
                 ok, resultado = crear_usuario_completo(
                     n_nombre.strip(), n_apellido.strip(),
-                    correo_generado, n_pass,
+                    correo_generado, "",
                     n_rol, n_control, n_depto
                 )
             if ok:
                 st.success(
-                    f"✅ Usuario '{n_nombre} {n_apellido}' creado.\n"
-                    f"📧 Correo: {correo_generado}"
+                    f"✅ Invitación enviada a **{correo_generado}**. "
+                    f"El usuario recibirá un link para activar su cuenta y definir su contraseña."
                 )
                 st.rerun()
             else:
