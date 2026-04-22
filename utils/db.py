@@ -285,17 +285,17 @@ def cancelar_sesion(sesion_id: str, disponibilidad_id: str | None) -> bool:
 
 
 def cancelar_slot_docente(disponibilidad_id: str) -> bool:
-    """Cancela TODAS las sesiones de un slot (acción del docente) y libera el bloque."""
+    """
+    Cancela un bloque completo del docente:
+    1. Marca todas las sesiones como Cancelada (quedan en historial de alumnos)
+    2. ELIMINA el slot de disponibilidad para que no se pueda reservar más
+    """
     sb = get_supabase()
     try:
-        # Cancelar todas las sesiones activas del slot
+        # 1. Marcar todas las sesiones activas como Cancelada (persisten en historial)
         sb.table("sesiones_tutoria").update({"estado": "Cancelada"})          .eq("disponibilidad_id", disponibilidad_id)          .neq("estado", "Cancelada").execute()
-        # Resetear el slot a disponible con cupos en 0
-        sb.table("disponibilidad_docentes").update({
-            "cupos_usados": 0,
-            "cupos":        CUPOS_MAX,
-            "disponible":   True,
-        }).eq("id", disponibilidad_id).execute()
+        # 2. Eliminar el slot de disponibilidad por completo
+        sb.table("disponibilidad_docentes").delete()          .eq("id", disponibilidad_id).execute()
         return True
     except Exception as e:
         st.error(f"Error al cancelar bloque: {e}")
@@ -362,9 +362,10 @@ def get_slots_con_alumnos_docente(docente_id: str, solo_pasados: bool = False) -
             m = s.get("materias", {})
             if isinstance(m, list): m = m[0] if m else {}
             s["materia_nombre"] = m.get("nombre", "—") if m else "—"
-            s["cupos_libres"]   = s.get("cupos", 8) - s.get("cupos_usados", 0)
+            s["hora_inicio"]    = str(s.get("hora_inicio",""))[:5]
+            s["hora_fin"]       = str(s.get("hora_fin",""))[:5]
 
-            # Cargar alumnos de este slot
+            # Cargar alumnos de este slot (fuente de verdad para el contador)
             ses_res = (sb.table("sesiones_tutoria")
                          .select("id, alumno_id, estado, asistencia, notas_docente, materia")
                          .eq("disponibilidad_id", s["id"])
@@ -377,7 +378,11 @@ def get_slots_con_alumnos_docente(docente_id: str, solo_pasados: bool = False) -
                 ses["alumno_control"] = info.get("numero_control") or "—"
                 alumnos.append(ses)
 
-            s["alumnos"] = alumnos
+            # Contador real desde sesiones activas
+            s["cupos_usados"] = len(alumnos)
+            s["cupos"]        = CUPOS_MAX
+            s["cupos_libres"] = CUPOS_MAX - len(alumnos)
+            s["alumnos"]      = alumnos
             if alumnos or not solo_pasados:
                 resultado.append(s)
 
