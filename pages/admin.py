@@ -260,8 +260,8 @@ with tab_nuevo:
         key="nuevo_rol_selector"
     )
 
-    st.info("Se enviará un link de activación al correo institucional del usuario. "
-            "El usuario definirá su propia contraseña al activar la cuenta.")
+    st.info("El usuario recibirá un correo con un link para activar su cuenta "
+            "y crear su propia contraseña.")
 
     with st.form("form_nuevo_usuario", clear_on_submit=True):
         c1, c2 = st.columns(2)
@@ -270,12 +270,10 @@ with tab_nuevo:
             n_apellido = st.text_input("Apellidos *")
         with c2:
             st.markdown(
-                "<small style='color:#5a7080;'>El correo se genera automáticamente "
-                "según el rol y se muestra antes de confirmar.</small>",
+                "<small style='color:#5a7080;'>El correo institucional se genera "
+                "automáticamente según el rol.</small>",
                 unsafe_allow_html=True
             )
-            # Espacio visual
-            st.markdown("<br>", unsafe_allow_html=True)
 
         st.divider()
 
@@ -295,7 +293,6 @@ with tab_nuevo:
         crear = st.form_submit_button("📧 Enviar invitación", type="primary",
                                       use_container_width=True)
 
-    # Variable dummy para compatibilidad con el flujo
     n_pass = n_pass2 = ""
 
     if crear:
@@ -315,7 +312,7 @@ with tab_nuevo:
         elif n_rol in ["docente","administrador"] and not n_depto:
             st.error("El departamento es obligatorio.")
         else:
-            st.info(f"📧 Correo que recibirá la invitación: **{correo_generado}**")
+            st.info(f"📧 Se enviará invitación a: **{correo_generado}**")
             with st.spinner("Enviando invitación…"):
                 ok, resultado = crear_usuario_completo(
                     n_nombre.strip(), n_apellido.strip(),
@@ -325,7 +322,7 @@ with tab_nuevo:
             if ok:
                 st.success(
                     f"✅ Invitación enviada a **{correo_generado}**. "
-                    f"El usuario recibirá un link para activar su cuenta y definir su contraseña."
+                    f"El usuario recibirá un link para crear su contraseña."
                 )
                 st.rerun()
             else:
