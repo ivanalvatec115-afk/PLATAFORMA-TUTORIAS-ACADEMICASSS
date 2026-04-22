@@ -12,7 +12,8 @@ from utils.reportes import (
     reporte_alumno_excel, reporte_alumno_pdf,
     reporte_docente_excel, reporte_docente_pdf,
 )
-from utils.db import CUPOS_MAX, (
+from utils.db import (
+    CUPOS_MAX,
     get_slots_con_alumnos_docente,
     get_slots_todos_docentes,
     get_todas_sesiones, get_todos_usuarios,
