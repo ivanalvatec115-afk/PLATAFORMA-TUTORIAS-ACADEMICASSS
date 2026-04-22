@@ -12,6 +12,9 @@ from utils.db import (
     get_slots_con_alumnos_docente,
     registrar_asistencia,
     get_materias_docente,
+    cancelar_sesion,
+    cancelar_slot_docente,
+    CUPOS_MAX,
 )
 from components.sidebar import render_sidebar
 
@@ -31,9 +34,9 @@ render_sidebar()
 def fmt_fecha_slot(fecha, h_ini, h_fin):
     try:
         d = datetime.strptime(fecha, "%Y-%m-%d").strftime("%d/%m/%Y")
-        return f"{d}  {h_ini[:5]} – {h_fin[:5]}"
+        return f"{d}  {str(h_ini)[:5]} – {str(h_fin)[:5]}"
     except Exception:
-        return f"{fecha} {h_ini[:5]}–{h_fin[:5]}"
+        return f"{fecha} {str(h_ini)[:5]}–{str(h_fin)[:5]}"
 
 
 # ── Header ───────────────────────────────────────────────
@@ -47,12 +50,12 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ── Métricas ─────────────────────────────────────────────
-slots_prog  = get_slots_con_alumnos_docente(perfil["id"], solo_pasados=False)
-slots_pas   = get_slots_con_alumnos_docente(perfil["id"], solo_pasados=True)
-tot_prog    = sum(len(s["alumnos"]) for s in slots_prog)
-tot_comp    = sum(1 for s in slots_pas for a in s["alumnos"] if a.get("estado") == "Completada")
-tot_noa     = sum(1 for s in slots_pas for a in s["alumnos"] if a.get("estado") == "No asistió")
-tot_slots   = len(slots_prog) + len(slots_pas)
+slots_prog = get_slots_con_alumnos_docente(perfil["id"], solo_pasados=False)
+slots_pas  = get_slots_con_alumnos_docente(perfil["id"], solo_pasados=True)
+tot_prog   = sum(len(s["alumnos"]) for s in slots_prog)
+tot_comp   = sum(1 for s in slots_pas for a in s["alumnos"] if a.get("estado") == "Completada")
+tot_noa    = sum(1 for s in slots_pas for a in s["alumnos"] if a.get("estado") == "No asistió")
+tot_slots  = len(slots_prog) + len(slots_pas)
 
 st.markdown(f"""
 <div class="metric-row">
@@ -67,7 +70,8 @@ col_left, col_right = st.columns([1, 1.4], gap="large")
 
 # ── IZQUIERDA: Disponibilidad ─────────────────────────────
 with col_left:
-    st.markdown("<div class='tutoria-card'><h3>🕐 Gestionar disponibilidad</h3>", unsafe_allow_html=True)
+    st.markdown("<div class='tutoria-card'><h3>🕐 Gestionar disponibilidad</h3>",
+                unsafe_allow_html=True)
 
     materias_doc = get_materias_docente(perfil["id"])
     if not materias_doc:
@@ -80,28 +84,32 @@ with col_left:
             c1, c2      = st.columns(2)
             with c1: f_inicio = st.time_input("Hora inicio", value=time(9, 0))
             with c2: f_fin    = st.time_input("Hora fin",    value=time(10, 0))
-            cupos     = st.number_input("Cupos máximos", min_value=1, max_value=8, value=8)
+            # Cupos fijos en 8, ya no editable
             submitted = st.form_submit_button("➕ Agregar bloque", type="primary",
                                               use_container_width=True)
+
         if submitted:
             if f_inicio >= f_fin:
                 st.error("La hora inicio debe ser menor a la de fin.")
             else:
-                ok = agregar_disponibilidad(perfil["id"], f_fecha, f_inicio, f_fin,
-                                            mat_nombres[mat_sel], cupos)
+                ok = agregar_disponibilidad(
+                    perfil["id"], f_fecha, f_inicio, f_fin,
+                    mat_nombres[mat_sel], CUPOS_MAX
+                )
                 if ok:
                     st.success("Bloque registrado.")
                     st.rerun()
 
-    st.markdown("<b style='color:#0d2137; font-size:0.82rem;'>Mis bloques registrados</b>",
+    st.markdown(f"<b style='color:#0d2137; font-size:0.82rem;'>Mis bloques (cupo fijo: {CUPOS_MAX} alumnos)</b>",
                 unsafe_allow_html=True)
     slots_todos = get_disponibilidad_docente(perfil["id"])
     if not slots_todos:
         st.caption("Aún no has registrado disponibilidad.")
     else:
         for s in slots_todos:
-            libres     = s.get("cupos", 8) - s.get("cupos_usados", 0)
-            estado_txt = f"✅ {libres} cupos libres" if s["disponible"] else "🔒 Sin cupos"
+            usados     = s.get("cupos_usados", 0)
+            libres     = CUPOS_MAX - usados
+            estado_txt = f"✅ {libres}/{CUPOS_MAX} libres" if libres > 0 else "🔒 Lleno"
             col_i, col_b = st.columns([3, 1])
             with col_i:
                 st.markdown(f"""
@@ -112,35 +120,40 @@ with col_left:
                     </div>
                 </div>""", unsafe_allow_html=True)
             with col_b:
-                if s.get("cupos_usados", 0) == 0:
-                    if st.button("🗑", key=f"del_{s['id']}", help="Eliminar"):
+                if usados == 0:
+                    if st.button("🗑", key=f"del_{s['id']}", help="Eliminar bloque vacío"):
                         eliminar_disponibilidad(s["id"])
                         st.rerun()
+
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ── DERECHA: Tabs ─────────────────────────────────────────
 with col_right:
-    tab_prog_t, tab_pas_t = st.tabs(["📅 Sesiones programadas", "✍️ Registrar asistencia"])
+    tab_prog_t, tab_pas_t = st.tabs(
+        ["📅 Sesiones programadas", "✍️ Registrar asistencia"]
+    )
 
-    # ── Tab: SESIONES PROGRAMADAS (bloques futuros) ──
+    # ── Tab: SESIONES PROGRAMADAS ──
     with tab_prog_t:
         if not slots_prog:
             st.info("No tienes sesiones programadas próximas.")
         else:
             for slot in slots_prog:
-                titulo = fmt_fecha_slot(slot["fecha"], slot["hora_inicio"], slot["hora_fin"])
-                mat    = slot.get("materia_nombre", "—")
-                usados = slot.get("cupos_usados", 0)
-                cupos  = slot.get("cupos", 8)
+                titulo  = fmt_fecha_slot(slot["fecha"], slot["hora_inicio"], slot["hora_fin"])
+                mat     = slot.get("materia_nombre", "—")
+                usados  = slot.get("cupos_usados", 0)
                 alumnos = slot["alumnos"]
 
-                with st.expander(f"📆 {titulo}  ·  📖 {mat}  ·  👥 {usados}/{cupos} alumnos"):
+                with st.expander(
+                    f"📆 {titulo}  ·  📖 {mat}  ·  👥 {usados}/{CUPOS_MAX} alumnos"
+                ):
                     if not alumnos:
                         st.caption("Ningún alumno ha reservado este bloque aún.")
                     else:
                         filas = ""
                         for a in alumnos:
                             bdg   = estado_badge(a.get("estado", "Programada"))
+                            # Botón cancelar sesión individual del alumno
                             filas += f"""<tr>
                                 <td>{a.get('alumno_nombre','—')}</td>
                                 <td>{a.get('alumno_control','—')}</td>
@@ -148,11 +161,23 @@ with col_right:
                             </tr>"""
                         st.markdown(f"""
                         <table class="hist-table">
-                            <thead><tr><th>Alumno</th><th>No. Control</th><th>Estado</th></tr></thead>
+                            <thead><tr>
+                                <th>Alumno</th><th>No. Control</th><th>Estado</th>
+                            </tr></thead>
                             <tbody>{filas}</tbody>
                         </table>""", unsafe_allow_html=True)
 
-    # ── Tab: REGISTRAR ASISTENCIA (bloques ya pasados) ──
+                    st.divider()
+                    st.markdown("**⚠️ Cancelar bloque completo**")
+                    st.caption("Esto cancelará la sesión para TODOS los alumnos registrados y liberará los cupos.")
+                    if st.button("🚫 Cancelar este bloque", key=f"cancel_slot_{slot['id']}",
+                                 use_container_width=True):
+                        ok = cancelar_slot_docente(slot["id"])
+                        if ok:
+                            st.success("✅ Bloque cancelado. Todos los alumnos fueron notificados en su historial.")
+                            st.rerun()
+
+    # ── Tab: REGISTRAR ASISTENCIA (bloques pasados) ──
     with tab_pas_t:
         st.markdown("**Solo aparecen bloques cuyo horario ya terminó.**")
         slots_pas_recarga = get_slots_con_alumnos_docente(perfil["id"], solo_pasados=True)
@@ -165,21 +190,19 @@ with col_right:
                 mat     = slot.get("materia_nombre", "—")
                 alumnos = slot["alumnos"]
                 usados  = slot.get("cupos_usados", 0)
-                cupos   = slot.get("cupos", 8)
-
-                # Verificar si ya todos tienen asistencia registrada
                 todos_reg = all(a.get("asistencia") is not None for a in alumnos) if alumnos else False
                 estado_bloque = "✅ Completado" if todos_reg else "⏳ Pendiente"
 
-                with st.expander(f"📆 {titulo}  ·  📖 {mat}  ·  {estado_bloque}  ·  👥 {usados}/{cupos}"):
+                with st.expander(
+                    f"📆 {titulo}  ·  📖 {mat}  ·  {estado_bloque}  ·  👥 {usados}/{CUPOS_MAX}"
+                ):
                     if not alumnos:
                         st.caption("Ningún alumno reservó este bloque.")
                     else:
                         notas = st.text_area(
                             "Notas generales de la sesión",
                             placeholder="Temas tratados, observaciones…",
-                            height=60,
-                            key=f"notas_{slot['id']}"
+                            height=60, key=f"notas_{slot['id']}"
                         )
                         cambios = {}
                         for alumno in alumnos:
@@ -209,7 +232,7 @@ with col_right:
                                 )
                                 cambios[sid] = asistio == "✅ Asistió"
 
-                        if st.button("💾 Guardar asistencias de este bloque",
+                        if st.button("💾 Guardar asistencias",
                                      type="primary", key=f"guardar_{slot['id']}",
                                      use_container_width=True):
                             errores = 0
