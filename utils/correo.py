@@ -33,9 +33,12 @@ def enviar_credenciales(correo_destino: str, nombre: str,
 
                 <div style="background:#ffffff; border:1px solid #cdd8e3; border-radius:10px;
                             padding:20px; margin:20px 0; text-align:center;">
-                    <p style="margin:0 0 8px; color:#5a7080; font-size:0.85rem;">CORREO INSTITUCIONAL</p>
-                    <p style="margin:0 0 16px; font-size:1.1rem; font-weight:bold; color:#0d2137;">
+                    <p style="margin:0 0 4px; color:#5a7080; font-size:0.85rem;">USUARIO (correo institucional)</p>
+                    <p style="margin:0 0 4px; font-size:1.1rem; font-weight:bold; color:#0d2137;">
                         {correo_usuario}
+                    </p>
+                    <p style="margin:0 0 16px; color:#e74c3c; font-size:0.78rem;">
+                        ⚠️ Este correo es tu nombre de usuario para iniciar sesión
                     </p>
                     <p style="margin:0 0 8px; color:#5a7080; font-size:0.85rem;">CONTRASEÑA TEMPORAL</p>
                     <p style="margin:0; font-size:1.3rem; font-weight:bold; color:#1a6fa8;
@@ -49,13 +52,11 @@ def enviar_credenciales(correo_destino: str, nombre: str,
                     desde la sección de configuración de tu perfil.
                 </p>
 
-                <div style="text-align:center; margin:24px 0;">
-                    <a href="https://plataforma-tutorias-academicasss-jze9ktp9wvmmegae8tpv2i.streamlit.app"
-                       style="background:#1a6fa8; color:#ffffff; padding:12px 32px;
-                              border-radius:8px; text-decoration:none; font-weight:bold;
-                              font-size:0.95rem;">
-                        Acceder a la plataforma →
-                    </a>
+                <div style="background:#eef2ff; border-radius:8px; padding:14px; margin:16px 0; text-align:center;">
+                    <p style="margin:0; color:#0d2137; font-size:0.88rem;">
+                        🌐 Accede a la plataforma en:<br>
+                        <strong>plataforma-tutorias-academicasss-jze9ktp9wvmmegae8tpv2i.streamlit.app</strong>
+                    </p>
                 </div>
 
                 <hr style="border:none; border-top:1px solid #e2e8f0; margin:20px 0;">
@@ -70,9 +71,10 @@ def enviar_credenciales(correo_destino: str, nombre: str,
         cuerpo_txt = (
             f"Hola {nombre},\n\n"
             f"Tu cuenta ha sido creada en la Plataforma de Tutorías Académicas - ITMH.\n\n"
-            f"Correo: {correo_usuario}\n"
-            f"Contraseña temporal: {password}\n\n"
-            f"Accede en: https://plataforma-tutorias-academicasss-jze9ktp9wvmmegae8tpv2i.streamlit.app\n\n"
+            f"USUARIO (correo institucional): {correo_usuario}\n"
+            f"CONTRASEÑA TEMPORAL: {password}\n\n"
+            f"IMPORTANTE: El correo institucional es tu nombre de usuario para iniciar sesión.\n\n"
+            f"Plataforma: plataforma-tutorias-academicasss-jze9ktp9wvmmegae8tpv2i.streamlit.app\n\n"
             f"Por seguridad, cambia tu contraseña después de tu primer inicio de sesión.\n\n"
             f"Instituto Tecnológico de Matehuala"
         )
