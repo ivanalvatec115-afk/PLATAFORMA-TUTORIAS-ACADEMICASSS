@@ -142,40 +142,61 @@ with col_right:
             for slot in slots_prog:
                 titulo  = fmt_fecha_slot(slot["fecha"], slot["hora_inicio"], slot["hora_fin"])
                 mat     = slot.get("materia_nombre", "—")
-                usados  = slot.get("cupos_usados", 0)
                 alumnos = slot["alumnos"]
+                usados  = len(alumnos)
+
+                # Determinar si todos los alumnos ya tienen asistencia registrada
+                todos_con_resultado = (
+                    len(alumnos) > 0 and
+                    all(a.get("estado") in ("Completada", "No asistió", "Cancelada")
+                        for a in alumnos)
+                )
+
+                if todos_con_resultado:
+                    icono_estado = "✅"
+                    etiqueta_estado = "Concluida"
+                elif usados == 0:
+                    icono_estado = "⬜"
+                    etiqueta_estado = "Sin reservas"
+                else:
+                    icono_estado = "🔵"
+                    etiqueta_estado = "En curso"
 
                 with st.expander(
-                    f"📆 {titulo}  ·  📖 {mat}  ·  👥 {usados}/{CUPOS_MAX} alumnos"
+                    f"📆 {titulo}  ·  📖 {mat}  ·  {icono_estado} {etiqueta_estado}  ·  👥 {usados}/{CUPOS_MAX}"
                 ):
                     if not alumnos:
                         st.caption("Ningún alumno ha reservado este bloque aún.")
                     else:
                         filas = ""
                         for a in alumnos:
-                            bdg   = estado_badge(a.get("estado", "Programada"))
-                            # Botón cancelar sesión individual del alumno
+                            bdg  = estado_badge(a.get("estado", "Programada"))
+                            asist = ("✅" if a.get("asistencia") is True
+                                     else "❌" if a.get("asistencia") is False
+                                     else "⏳ Pendiente")
                             filas += f"""<tr>
                                 <td>{a.get('alumno_nombre','—')}</td>
                                 <td>{a.get('alumno_control','—')}</td>
                                 <td>{bdg}</td>
+                                <td style="text-align:center;">{asist}</td>
                             </tr>"""
                         st.markdown(f"""
                         <table class="hist-table">
                             <thead><tr>
-                                <th>Alumno</th><th>No. Control</th><th>Estado</th>
+                                <th>Alumno</th><th>No. Control</th>
+                                <th>Estado</th><th style="text-align:center;">Asistencia</th>
                             </tr></thead>
                             <tbody>{filas}</tbody>
                         </table>""", unsafe_allow_html=True)
 
                     st.divider()
                     st.markdown("**⚠️ Cancelar bloque completo**")
-                    st.caption("Esto cancelará la sesión para TODOS los alumnos registrados y liberará los cupos.")
+                    st.caption("Esto cancelará la sesión para TODOS los alumnos y liberará los cupos.")
                     if st.button("🚫 Cancelar este bloque", key=f"cancel_slot_{slot['id']}",
                                  use_container_width=True):
                         ok = cancelar_slot_docente(slot["id"])
                         if ok:
-                            st.success("✅ Bloque cancelado. Todos los alumnos fueron notificados en su historial.")
+                            st.success("✅ Bloque cancelado. Se refleja en el historial de los alumnos.")
                             st.rerun()
 
     # ── Tab: REGISTRAR ASISTENCIA (bloques pasados) ──
