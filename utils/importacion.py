@@ -6,6 +6,8 @@ El usuario recibe el link, va a /activar y crea su propia contraseña.
 """
 from __future__ import annotations
 import io
+import secrets
+import string
 import pandas as pd
 import streamlit as st
 from utils.db import crear_usuario_completo
@@ -22,6 +24,17 @@ DEPTOS_VALIDOS = [
     "Administración",
     "Otro",
 ]
+
+
+def generar_password() -> str:
+    """Contraseña aleatoria segura de 10 caracteres."""
+    alfabeto = string.ascii_letters + string.digits + "!@#$"
+    while True:
+        pwd = "".join(secrets.choice(alfabeto) for _ in range(10))
+        if (any(c.isupper() for c in pwd) and
+            any(c.islower() for c in pwd) and
+            any(c.isdigit() for c in pwd)):
+            return pwd
 
 
 def _norm(texto: str) -> str:
@@ -84,7 +97,8 @@ def leer_excel_alumnos(archivo_bytes: bytes) -> tuple[list[dict], list[str]]:
             if errs:
                 errores.extend(errs)
             else:
-                fila["correo"] = generar_correo_alumno(fila["numero_control"])
+                fila["correo"]   = generar_correo_alumno(fila["numero_control"])
+                fila["password"] = generar_password()
                 filas.append(fila)
     except Exception as e:
         errores.append(f"Error al leer hoja Alumnos: {e}")
@@ -106,7 +120,8 @@ def leer_excel_docentes(archivo_bytes: bytes) -> tuple[list[dict], list[str]]:
             if errs:
                 errores.extend(errs)
             else:
-                fila["correo"] = generar_correo_docente(fila["nombre"], fila["apellidos"])
+                fila["correo"]   = generar_correo_docente(fila["nombre"], fila["apellidos"])
+                fila["password"] = generar_password()
                 filas.append(fila)
     except Exception as e:
         errores.append(f"Error al leer hoja Docentes: {e}")
@@ -119,7 +134,7 @@ def importar_alumnos(filas: list[dict]) -> tuple[int, int, list[str], list[dict]
     for idx, fila in enumerate(filas):
         ok, resultado = crear_usuario_completo(
             nombre=fila["nombre"], apellido=fila["apellidos"],
-            correo=fila["correo"], password="",
+            correo=fila["correo"], password=fila["password"],
             rol="alumno", numero_control=fila["numero_control"],
         )
         if ok:
@@ -128,7 +143,7 @@ def importar_alumnos(filas: list[dict]) -> tuple[int, int, list[str], list[dict]
                 "Nombre":      f"{fila['nombre']} {fila['apellidos']}",
                 "No. Control": fila["numero_control"],
                 "Correo":      fila["correo"],
-                "Estado":      "✅ Invitación enviada",
+                "Estado":      "✅ Creado — correo enviado",
             })
         else:
             fallidos += 1
@@ -150,7 +165,7 @@ def importar_docentes(filas: list[dict]) -> tuple[int, int, list[str], list[dict
     for idx, fila in enumerate(filas):
         ok, resultado = crear_usuario_completo(
             nombre=fila["nombre"], apellido=fila["apellidos"],
-            correo=fila["correo"], password="",
+            correo=fila["correo"], password=fila["password"],
             rol="docente", departamento=fila["departamento"],
         )
         if ok:
@@ -159,7 +174,7 @@ def importar_docentes(filas: list[dict]) -> tuple[int, int, list[str], list[dict
                 "Nombre":       f"{fila['nombre']} {fila['apellidos']}",
                 "Departamento": fila["departamento"],
                 "Correo":       fila["correo"],
-                "Estado":       "✅ Invitación enviada",
+                "Estado":       "✅ Creado — correo enviado",
             })
         else:
             fallidos += 1
