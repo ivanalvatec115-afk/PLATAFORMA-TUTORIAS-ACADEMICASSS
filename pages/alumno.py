@@ -6,6 +6,7 @@ from datetime import datetime
 from utils.styles import inject_css, estado_badge
 from utils.auth import require_auth, get_current_perfil, get_current_rol
 from utils.reportes import reporte_alumno_excel, reporte_alumno_pdf
+from utils.supabase_client import get_supabase
 from utils.db import (
     get_materias,
     get_disponibilidad_por_materia,
@@ -241,3 +242,52 @@ if sesiones:
             except Exception as e:
                 st.error(f"Error PDF: {e}")
         st.markdown("</div>", unsafe_allow_html=True)
+
+# ── Cambiar contraseña ────────────────────────────────────
+st.markdown("<div class='tutoria-card'><h3>🔑 Cambiar contraseña</h3>",
+            unsafe_allow_html=True)
+
+with st.form("form_cambiar_pass", clear_on_submit=True):
+    pass_actual = st.text_input("Contraseña actual", type="password", key="pass_actual")
+    pass_nueva  = st.text_input("Nueva contraseña (mín. 6 caracteres)",
+                                 type="password", key="pass_nueva")
+    pass_conf   = st.text_input("Confirmar nueva contraseña",
+                                 type="password", key="pass_conf")
+    cambiar     = st.form_submit_button("🔑 Cambiar contraseña", type="primary",
+                                         use_container_width=True)
+
+if cambiar:
+    if not all([pass_actual, pass_nueva, pass_conf]):
+        st.error("Completa todos los campos.")
+    elif pass_nueva != pass_conf:
+        st.error("La nueva contraseña y su confirmación no coinciden.")
+    elif len(pass_nueva) < 6:
+        st.error("La nueva contraseña debe tener al menos 6 caracteres.")
+    elif pass_nueva == pass_actual:
+        st.error("La nueva contraseña debe ser diferente a la actual.")
+    else:
+        from utils.auth import login as _login
+        from utils.supabase_client import get_supabase_admin as _get_admin
+        # Verificar contraseña actual reautenticando
+        with st.spinner("Verificando…"):
+            sb = get_supabase()
+            try:
+                verificacion = sb.auth.sign_in_with_password({
+                    "email":    perfil["correo"],
+                    "password": pass_actual,
+                })
+                if verificacion.user:
+                    # Contraseña actual correcta — actualizar
+                    _get_admin().auth.admin.update_user_by_id(
+                        perfil["id"], {"password": pass_nueva}
+                    )
+                    st.success("✅ Contraseña actualizada correctamente.")
+                else:
+                    st.error("La contraseña actual es incorrecta.")
+            except Exception as e:
+                if "invalid" in str(e).lower() or "credentials" in str(e).lower():
+                    st.error("La contraseña actual es incorrecta.")
+                else:
+                    st.error(f"Error: {e}")
+
+st.markdown("</div>", unsafe_allow_html=True)
