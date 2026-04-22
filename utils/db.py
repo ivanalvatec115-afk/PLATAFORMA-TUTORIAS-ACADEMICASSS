@@ -551,8 +551,6 @@ def get_slots_todos_docentes() -> list[dict]:
             s["materia_nombre"] = m.get("nombre", "—") if m else "—"
             s["hora_inicio"]    = str(s.get("hora_inicio",""))[:5]
             s["hora_fin"]       = str(s.get("hora_fin",""))[:5]
-            s["cupos_libres"]   = s.get("cupos", 8) - s.get("cupos_usados", 0)
-
             # Nombre del docente
             did = s.get("docente_id","")
             if did not in cache_doc:
@@ -573,7 +571,11 @@ def get_slots_todos_docentes() -> list[dict]:
                 ses["alumno_control"] = info_a.get("numero_control") or "—"
                 alumnos.append(ses)
 
-            s["alumnos"] = alumnos
+            # Contador real desde sesiones activas (no del campo cupos_usados)
+            s["cupos_usados"] = len(alumnos)
+            s["cupos"]        = CUPOS_MAX
+            s["cupos_libres"] = CUPOS_MAX - len(alumnos)
+            s["alumnos"]      = alumnos
             resultado.append(s)
 
         return resultado
