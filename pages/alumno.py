@@ -103,10 +103,6 @@ with col_left:
                                      list(opciones_slot.keys()), key="slot_sel")
             sel_slot  = opciones_slot[sel_label]
 
-            descripcion = st.text_area("Descripción (opcional)",
-                                       placeholder="Describe brevemente tu duda…",
-                                       height=70, key="desc_agendar")
-
             if st.button("✅ Solicitar tutoría", type="primary", use_container_width=True):
                 fecha_hora = f"{sel_slot['fecha']}T{str(sel_slot['hora_inicio'])[:5]}"
                 ok = agendar_sesion(
@@ -115,7 +111,7 @@ with col_left:
                     disponibilidad_id= sel_slot["id"],
                     fecha_hora       = fecha_hora,
                     materia          = mat_sel_nombre,
-                    descripcion      = descripcion,
+                    descripcion      = "",
                 )
                 if ok:
                     st.success("✅ ¡Tutoría agendada correctamente!")
@@ -128,16 +124,6 @@ with col_left:
     if programadas_list:
         st.markdown("<div class='tutoria-card'><h3>❌ Cancelar una sesión</h3>",
                     unsafe_allow_html=True)
-
-        # Debug: mostrar datos de la sesión seleccionada
-        with st.expander("🔍 Diagnóstico (expandir si hay problemas)"):
-            for s in programadas_list:
-                st.write({
-                    "id": s.get("id"),
-                    "disponibilidad_id": s.get("disponibilidad_id"),
-                    "estado": s.get("estado"),
-                    "materia": s.get("materia"),
-                })
 
         for s in programadas_list:
             fh  = fmt_fecha(s["fecha_hora"])
