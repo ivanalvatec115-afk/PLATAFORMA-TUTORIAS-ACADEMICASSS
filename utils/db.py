@@ -261,26 +261,31 @@ def agendar_sesion(alumno_id: str, docente_id: str,
 
 
 def cancelar_sesion(sesion_id: str, disponibilidad_id: str | None) -> bool:
-    """Cancela UNA sesión de alumno y recalcula cupos desde la BD."""
-    sb = get_supabase()
+    """Cancela UNA sesión de alumno. Usa service_role para evitar RLS."""
+    # Usamos admin client para saltarnos RLS en el UPDATE
+    sb       = get_supabase()
+    sb_admin = get_supabase_admin()
     try:
-        sb.table("sesiones_tutoria").update({"estado": "Cancelada"}).eq("id", sesion_id).execute()
+        # 1. Cancelar la sesión (admin evita bloqueo RLS)
+        res = sb_admin.table("sesiones_tutoria")                      .update({"estado": "Cancelada"})                      .eq("id", sesion_id).execute()
+
+        if not res.data:
+            st.error("No se pudo cancelar la sesión. Verifica que el ID sea correcto.")
+            return False
+
+        # 2. Recalcular cupos reales en el slot
         if disponibilidad_id:
-            # Recontar reservas activas reales tras la cancelación
-            reservas = (sb.table("sesiones_tutoria")
-                          .select("id")
-                          .eq("disponibilidad_id", disponibilidad_id)
-                          .neq("estado", "Cancelada")
-                          .execute())
+            reservas = sb.table("sesiones_tutoria")                         .select("id")                         .eq("disponibilidad_id", disponibilidad_id)                         .neq("estado", "Cancelada")                         .execute()
             nuevo_usado = len(reservas.data or [])
-            sb.table("disponibilidad_docentes").update({
+            sb_admin.table("disponibilidad_docentes").update({
                 "cupos_usados": nuevo_usado,
                 "cupos":        CUPOS_MAX,
                 "disponible":   nuevo_usado < CUPOS_MAX,
             }).eq("id", disponibilidad_id).execute()
+
         return True
     except Exception as e:
-        st.error(f"Error al cancelar: {e}")
+        st.error(f"Error al cancelar sesión: {e}")
         return False
 
 
