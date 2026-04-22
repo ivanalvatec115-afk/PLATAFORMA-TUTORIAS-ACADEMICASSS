@@ -81,6 +81,18 @@ tab_usuarios, tab_nuevo, tab_materias, tab_reportes, tab_sesiones = st.tabs([
     "📚 Materias por docente", "📊 Reportes", "📋 Todas las sesiones"
 ])
 
+# Lista de departamentos compartida en todo el admin
+DEPTOS_LIST = [
+    "Ingeniería en Sistemas Computacionales",
+    "Ciencias Básicas",
+    "Ingeniería Industrial",
+    "Ingeniería Eléctrica",
+    "Ingeniería Mecánica",
+    "Coordinación Académica",
+    "Administración",
+    "Otro",
+]
+
 # ══════════════════════════════════════════════════════════
 # TAB: GESTIONAR USUARIOS
 # ══════════════════════════════════════════════════════════
@@ -121,8 +133,11 @@ with tab_usuarios:
                                                   value=u.get("numero_control","") or "")
                         e_depto   = None
                     else:
-                        e_depto   = st.text_input("Departamento",
-                                                  value=u.get("departamento","") or "")
+                        _depto_val = u.get("departamento","") or DEPTOS_LIST[0]
+                        _depto_idx = DEPTOS_LIST.index(_depto_val) if _depto_val in DEPTOS_LIST else 0
+                        e_depto   = st.selectbox("Departamento", DEPTOS_LIST,
+                                                 index=_depto_idx,
+                                                 key="edit_depto_sel")
                         e_control = None
                 with c2:
                     e_apellido = st.text_input("Apellidos", value=u.get("apellido",""))
@@ -226,41 +241,84 @@ with tab_nuevo:
                 unsafe_allow_html=True)
     st.info("El usuario se creará en Supabase Auth y quedará activo de inmediato.")
 
+    # ── El rol se define FUERA del form para que los campos
+    #    condicionales se actualicen en tiempo real sin bug ──
+    n_rol = st.selectbox(
+        "Rol del nuevo usuario *",
+        ["alumno", "docente", "administrador"],
+        key="nuevo_rol_selector"
+    )
+
     with st.form("form_nuevo_usuario", clear_on_submit=True):
         c1, c2 = st.columns(2)
         with c1:
-            n_nombre = st.text_input("Nombre(s) *")
-            n_correo = st.text_input("Correo institucional *")
-            n_pass   = st.text_input("Contraseña * (mín. 6 caracteres)", type="password")
-        with c2:
+            n_nombre   = st.text_input("Nombre(s) *")
             n_apellido = st.text_input("Apellidos *")
-            n_rol      = st.selectbox("Rol *", ["alumno","docente","administrador"])
-            n_pass2    = st.text_input("Confirmar contraseña *", type="password")
 
-        n_control = n_depto = None
+        with c2:
+            # Punto 7: correo se genera automáticamente — solo mostramos preview
+            # El correo real se genera al crear
+            st.markdown(
+                "<small style='color:#5a7080;'>El correo se genera automáticamente "
+                "como <b>nombre.apellido@itm.edu.mx</b></small>",
+                unsafe_allow_html=True
+            )
+            n_pass  = st.text_input("Contraseña * (mín. 6 caracteres)", type="password")
+            n_pass2 = st.text_input("Confirmar contraseña *", type="password")
+
+        st.divider()
+
+        # Punto 2: campos condicionales estables — cada rol tiene su propio widget
+        # con key único para evitar el bug de reutilización de widgets
         if n_rol == "alumno":
-            n_control = st.text_input("Número de control")
-        else:
-            n_depto = st.text_input("Departamento / Área")
+            n_control = st.text_input("Número de control *",
+                                      key="campo_control_alumno")
+            n_depto   = None
+        elif n_rol == "docente":
+            n_depto   = st.selectbox("Departamento *", DEPTOS_LIST,
+                                     key="campo_depto_docente")
+            n_control = None
+        else:  # administrador
+            n_depto   = st.selectbox("Departamento *", DEPTOS_LIST,
+                                     key="campo_depto_admin")
+            n_control = None
 
         crear = st.form_submit_button("✅ Crear usuario", type="primary",
                                       use_container_width=True)
 
     if crear:
-        if not all([n_nombre, n_apellido, n_correo, n_pass, n_pass2]):
+        # Punto 7: generar correo automáticamente
+        primer_nombre   = n_nombre.strip().split()[0].lower() if n_nombre.strip() else ""
+        primer_apellido = n_apellido.strip().split()[0].lower() if n_apellido.strip() else ""
+        # Quitar acentos básicos
+        reemplazos = str.maketrans("áéíóúüñÁÉÍÓÚÜÑ","aeiouunAEIOUUN")
+        primer_nombre   = primer_nombre.translate(reemplazos)
+        primer_apellido = primer_apellido.translate(reemplazos)
+        correo_generado = f"{primer_nombre}.{primer_apellido}@itm.edu.mx"
+
+        if not all([n_nombre, n_apellido, n_pass, n_pass2]):
             st.error("Completa todos los campos obligatorios (*).")
+        elif n_rol == "alumno" and not n_control:
+            st.error("El número de control es obligatorio para alumnos.")
+        elif n_rol in ["docente","administrador"] and not n_depto:
+            st.error("El departamento es obligatorio.")
         elif n_pass != n_pass2:
             st.error("Las contraseñas no coinciden.")
         elif len(n_pass) < 6:
             st.error("La contraseña debe tener al menos 6 caracteres.")
         else:
+            st.info(f"📧 Correo generado: **{correo_generado}**")
             with st.spinner("Creando usuario en Supabase…"):
                 ok, resultado = crear_usuario_completo(
-                    n_nombre, n_apellido, n_correo, n_pass,
+                    n_nombre.strip(), n_apellido.strip(),
+                    correo_generado, n_pass,
                     n_rol, n_control, n_depto
                 )
             if ok:
-                st.success(f"✅ Usuario '{n_nombre} {n_apellido}' creado y activado.")
+                st.success(
+                    f"✅ Usuario '{n_nombre} {n_apellido}' creado.\n"
+                    f"📧 Correo: {correo_generado}"
+                )
                 st.rerun()
             else:
                 st.error(f"Error: {resultado}")
