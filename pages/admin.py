@@ -10,7 +10,7 @@ from utils.auth import require_auth, get_current_perfil, get_current_rol
 from utils.importacion import (
     leer_excel_alumnos, leer_excel_docentes,
     importar_alumnos, importar_docentes,
-    generar_correo_alumno, generar_correo_docente, generar_password,
+    generar_correo_alumno, generar_correo_docente,
 )
 from utils.reportes import (
     reporte_admin_excel, reporte_admin_pdf,
