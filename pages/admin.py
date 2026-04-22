@@ -376,29 +376,31 @@ with tab_importar:
         
         if filas_a:
             st.success(f"✅ {len(filas_a)} alumno(s) listos para importar.")
-            # Vista previa
-            with st.expander("👁 Vista previa de datos a importar"):
-                preview_data = [{
-                    "Nombre": f["nombre"],
-                    "Apellido": f["apellido"],
-                    "No. Control": f["numero_control"],
-                    "Correo generado": f["correo"],
-                } for f in filas_a]
-                st.dataframe(preview_data, use_container_width=True)
+            with st.expander("👁 Vista previa — invitaciones que se enviarán"):
+                st.dataframe([{
+                    "Nombre completo": f"{f['nombre']} {f['apellidos']}",
+                    "No. Control":     f["numero_control"],
+                    "Correo":          f["correo"],
+                } for f in filas_a], use_container_width=True)
+            st.info("📧 Cada usuario recibirá un link de activación en su correo "
+                    "institucional para definir su propia contraseña.")
 
-            if st.button("✅ Confirmar importación de alumnos", type="primary",
+            if st.button("✅ Confirmar e importar alumnos", type="primary",
                          use_container_width=True, key="btn_imp_alumnos"):
-                with st.spinner("Creando usuarios en Supabase…"):
-                    ok_a, fail_a, errs_imp_a = importar_alumnos(filas_a)
-                st.success(f"✅ {ok_a} alumno(s) creados correctamente.")
+                with st.spinner("Enviando invitaciones…"):
+                    ok_a, fail_a, errs_imp_a, resumen_a = importar_alumnos(filas_a)
+                if ok_a > 0:
+                    st.success(f"✅ {ok_a} alumno(s) invitados correctamente.")
+                    with st.expander("📋 Resumen de invitaciones enviadas"):
+                        st.dataframe(resumen_a, use_container_width=True)
                 if fail_a:
-                    st.error(f"❌ {fail_a} alumno(s) con error:")
+                    st.error(f"❌ {fail_a} con error:")
                     for e in errs_imp_a:
                         st.markdown(f"- {e}")
                 if ok_a > 0:
                     st.rerun()
         elif not errores_a:
-            st.warning("El archivo no contiene filas con datos. Verifica que llenaste la hoja 'Alumnos'.")
+            st.warning("El archivo no contiene filas. Verifica que llenaste la hoja 'Alumnos'.")
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -422,28 +424,31 @@ with tab_importar:
 
         if filas_d:
             st.success(f"✅ {len(filas_d)} docente(s) listos para importar.")
-            with st.expander("👁 Vista previa de datos a importar"):
-                preview_d = [{
-                    "Nombre": f["nombre"],
-                    "Apellido": f["apellido"],
-                    "Departamento": f["departamento"],
-                    "Correo generado": f["correo"],
-                } for f in filas_d]
-                st.dataframe(preview_d, use_container_width=True)
+            with st.expander("👁 Vista previa — invitaciones que se enviarán"):
+                st.dataframe([{
+                    "Nombre completo": f"{f['nombre']} {f['apellidos']}",
+                    "Departamento":    f["departamento"],
+                    "Correo":          f["correo"],
+                } for f in filas_d], use_container_width=True)
+            st.info("📧 Cada docente recibirá un link de activación en su correo "
+                    "institucional para definir su propia contraseña.")
 
-            if st.button("✅ Confirmar importación de docentes", type="primary",
+            if st.button("✅ Confirmar e importar docentes", type="primary",
                          use_container_width=True, key="btn_imp_docentes"):
-                with st.spinner("Creando usuarios en Supabase…"):
-                    ok_d, fail_d, errs_imp_d = importar_docentes(filas_d)
-                st.success(f"✅ {ok_d} docente(s) creados correctamente.")
+                with st.spinner("Enviando invitaciones…"):
+                    ok_d, fail_d, errs_imp_d, resumen_d = importar_docentes(filas_d)
+                if ok_d > 0:
+                    st.success(f"✅ {ok_d} docente(s) invitados correctamente.")
+                    with st.expander("📋 Resumen de invitaciones enviadas"):
+                        st.dataframe(resumen_d, use_container_width=True)
                 if fail_d:
-                    st.error(f"❌ {fail_d} docente(s) con error:")
+                    st.error(f"❌ {fail_d} con error:")
                     for e in errs_imp_d:
                         st.markdown(f"- {e}")
                 if ok_d > 0:
                     st.rerun()
         elif not errores_d:
-            st.warning("El archivo no contiene filas con datos. Verifica que llenaste la hoja 'Docentes'.")
+            st.warning("El archivo no contiene filas. Verifica que llenaste la hoja 'Docentes'.")
 
     st.markdown("</div>", unsafe_allow_html=True)
 
