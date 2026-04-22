@@ -11,6 +11,7 @@ from utils.db import (
     agendar_sesion,
     cancelar_sesion,
     get_sesiones_alumno,
+    CUPOS_MAX,
 )
 from components.sidebar import render_sidebar
 
@@ -64,11 +65,11 @@ col_left, col_right = st.columns([1, 1.3], gap="large")
 
 # ── IZQUIERDA: Agendar ───────────────────────────────────
 with col_left:
-    st.markdown("<div class='tutoria-card'><h3>➕ Agendar nueva sesión</h3>", unsafe_allow_html=True)
+    st.markdown("<div class='tutoria-card'><h3>➕ Agendar nueva sesión</h3>",
+                unsafe_allow_html=True)
 
-    # 1) Selección de materia (searchable)
-    materias     = get_materias()
-    nombres_mat  = [m["nombre"] for m in materias]
+    materias       = get_materias()
+    nombres_mat    = [m["nombre"] for m in materias]
     mat_sel_nombre = st.selectbox(
         "1️⃣ Selecciona la materia",
         options=[""] + nombres_mat,
@@ -76,12 +77,9 @@ with col_left:
         key="mat_sel"
     )
 
-    # 2) Horarios disponibles según materia elegida
-    slots_disponibles = []
     if mat_sel_nombre:
-        mat_obj = next((m for m in materias if m["nombre"] == mat_sel_nombre), None)
-        if mat_obj:
-            slots_disponibles = get_disponibilidad_por_materia(mat_obj["id"])
+        mat_obj          = next((m for m in materias if m["nombre"] == mat_sel_nombre), None)
+        slots_disponibles = get_disponibilidad_por_materia(mat_obj["id"]) if mat_obj else []
 
         if not slots_disponibles:
             st.info("No hay horarios disponibles para esta materia.")
@@ -91,10 +89,10 @@ with col_left:
                 libres = s.get("cupos_libres", 0)
                 label  = (f"{s['docente_nombre']}  ·  {s['fecha']}  "
                           f"{s['hora_inicio'][:5]}–{s['hora_fin'][:5]}  "
-                          f"({libres} cupo{'s' if libres != 1 else ''} libre{'s' if libres != 1 else ''})")
+                          f"({libres}/{CUPOS_MAX} cupos libres)")
                 opciones_slot[label] = s
 
-            sel_label = st.selectbox("2️⃣ Selecciona horario disponible",
+            sel_label = st.selectbox("2️⃣ Selecciona horario",
                                      list(opciones_slot.keys()), key="slot_sel")
             sel_slot  = opciones_slot[sel_label]
 
@@ -118,27 +116,45 @@ with col_left:
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # Cancelar sesión programada
+    # ── Cancelar sesión ──
     programadas_list = [s for s in sesiones if s["estado"] == "Programada"]
     if programadas_list:
-        st.markdown("<div class='tutoria-card'><h3>❌ Cancelar una sesión</h3>", unsafe_allow_html=True)
-        opciones_cancel = {
-            f"{fmt_fecha(s['fecha_hora'])} · {s.get('materia','—')} · {s.get('docente_nombre','—')}": s
-            for s in programadas_list
-        }
+        st.markdown("<div class='tutoria-card'><h3>❌ Cancelar una sesión</h3>",
+                    unsafe_allow_html=True)
+        opciones_cancel = {}
+        for s in programadas_list:
+            label = (f"{fmt_fecha(s['fecha_hora'])} · "
+                     f"{s.get('materia','—')} · "
+                     f"{s.get('docente_nombre','—')}")
+            opciones_cancel[label] = s
+
         sel_cancel = st.selectbox("Selecciona la sesión a cancelar",
                                   list(opciones_cancel.keys()), key="cancel_sel")
         ses_cancel = opciones_cancel[sel_cancel]
-        if st.button("Cancelar sesión", use_container_width=True):
-            ok = cancelar_sesion(ses_cancel["id"], ses_cancel.get("disponibilidad_id"))
+
+        st.markdown(f"""
+        <div class="avail-item">
+            <div>
+                <strong>{ses_cancel.get('materia','—')}</strong><br>
+                <small>📆 {fmt_fecha(ses_cancel['fecha_hora'])} · 
+                👨‍🏫 {ses_cancel.get('docente_nombre','—')}</small>
+            </div>
+        </div>""", unsafe_allow_html=True)
+
+        if st.button("❌ Confirmar cancelación", use_container_width=True):
+            # Obtener disponibilidad_id directamente del dict de la sesión
+            disp_id = ses_cancel.get("disponibilidad_id")
+            ok = cancelar_sesion(ses_cancel["id"], disp_id)
             if ok:
-                st.success("Sesión cancelada.")
+                st.success("✅ Sesión cancelada. El cupo fue liberado.")
                 st.rerun()
+
         st.markdown("</div>", unsafe_allow_html=True)
 
 # ── DERECHA: Historial ───────────────────────────────────
 with col_right:
-    st.markdown("<div class='tutoria-card'><h3>📋 Mi historial académico</h3>", unsafe_allow_html=True)
+    st.markdown("<div class='tutoria-card'><h3>📋 Mi historial académico</h3>",
+                unsafe_allow_html=True)
 
     if not sesiones:
         st.info("Aún no tienes tutorías registradas.")
