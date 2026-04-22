@@ -245,3 +245,45 @@ with col_right:
                                 st.rerun()
                             else:
                                 st.error(f"{errores} error(es) al guardar.")
+
+# ── Descargar reporte ─────────────────────────────────────
+st.divider()
+st.markdown("<div class='tutoria-card'><h3>📥 Descargar mi reporte de tutorías</h3>",
+            unsafe_allow_html=True)
+
+from utils.db import get_sesiones_docente as _get_ses_doc
+_sesiones_reporte = _get_ses_doc(perfil["id"])
+nombre_completo   = f"{perfil['nombre']} {perfil['apellido']}"
+
+if not _sesiones_reporte:
+    st.info("No hay sesiones registradas para generar un reporte.")
+else:
+    col_xl, col_pdf = st.columns(2)
+    with col_xl:
+        try:
+            datos, fname = reporte_docente_excel(_sesiones_reporte, nombre_completo)
+            st.download_button(
+                "⬇️ Excel",
+                data=datos,
+                file_name=fname,
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+                key="dl_doc_xl"
+            )
+        except Exception as e:
+            st.error(f"Error Excel: {e}")
+    with col_pdf:
+        try:
+            datos, fname = reporte_docente_pdf(_sesiones_reporte, nombre_completo)
+            st.download_button(
+                "⬇️ PDF",
+                data=datos,
+                file_name=fname,
+                mime="application/pdf",
+                use_container_width=True,
+                key="dl_doc_pdf"
+            )
+        except Exception as e:
+            st.error(f"Error PDF: {e}")
+
+st.markdown("</div>", unsafe_allow_html=True)
