@@ -7,6 +7,10 @@ import plotly.express as px
 from datetime import datetime
 from utils.styles import inject_css, estado_badge
 from utils.auth import require_auth, get_current_perfil, get_current_rol
+from utils.importacion import (
+    leer_excel_alumnos, leer_excel_docentes,
+    importar_alumnos, importar_docentes,
+)
 from utils.reportes import (
     reporte_admin_excel, reporte_admin_pdf,
     reporte_alumno_excel, reporte_alumno_pdf,
@@ -82,8 +86,8 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-tab_usuarios, tab_nuevo, tab_materias, tab_reportes, tab_sesiones = st.tabs([
-    "👥 Gestionar usuarios", "➕ Nuevo usuario",
+tab_usuarios, tab_nuevo, tab_importar, tab_materias, tab_reportes, tab_sesiones = st.tabs([
+    "👥 Gestionar usuarios", "➕ Nuevo usuario", "📤 Importar Excel",
     "📚 Materias por docente", "📊 Reportes", "📋 Todas las sesiones"
 ])
 
@@ -330,6 +334,121 @@ with tab_nuevo:
                 st.error(f"Error: {resultado}")
 
     st.markdown("</div>", unsafe_allow_html=True)
+
+# ══════════════════════════════════════════════════════════
+# TAB: IMPORTAR EXCEL
+# ══════════════════════════════════════════════════════════
+with tab_importar:
+    st.markdown("<div class='tutoria-card'><h3>📤 Importación masiva desde Excel</h3>",
+                unsafe_allow_html=True)
+
+    # Descargar plantilla — ruta relativa al repo
+    import pathlib
+    _plantilla_path = pathlib.Path(__file__).parent.parent / "plantilla_importacion.xlsx"
+    with open(_plantilla_path, "rb") as pf:
+        plantilla_bytes = pf.read()
+    st.download_button(
+        "⬇️ Descargar plantilla Excel",
+        data=plantilla_bytes,
+        file_name="plantilla_importacion_ITMH.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=False,
+    )
+    st.caption("Descarga la plantilla, llena los datos y súbela aquí. "
+               "No modifiques los encabezados ni el nombre de las hojas.")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── Importar Alumnos ──
+    st.markdown("<div class='tutoria-card'><h3>🎓 Importar Alumnos</h3>",
+                unsafe_allow_html=True)
+    archivo_alumnos = st.file_uploader(
+        "Sube el Excel con alumnos (hoja: Alumnos)",
+        type=["xlsx"],
+        key="upload_alumnos"
+    )
+
+    if archivo_alumnos:
+        bytes_a = archivo_alumnos.read()
+        filas_a, errores_a = leer_excel_alumnos(bytes_a)
+
+        if errores_a:
+            st.error(f"Se encontraron {len(errores_a)} error(es) de validación:")
+            for err in errores_a:
+                st.markdown(f"- {err}")
+        
+        if filas_a:
+            st.success(f"✅ {len(filas_a)} alumno(s) listos para importar.")
+            # Vista previa
+            with st.expander("👁 Vista previa de datos a importar"):
+                preview_data = [{
+                    "Nombre": f["nombre"],
+                    "Apellido": f["apellido"],
+                    "No. Control": f["numero_control"],
+                    "Correo generado": f["correo"],
+                } for f in filas_a]
+                st.dataframe(preview_data, use_container_width=True)
+
+            if st.button("✅ Confirmar importación de alumnos", type="primary",
+                         use_container_width=True, key="btn_imp_alumnos"):
+                with st.spinner("Creando usuarios en Supabase…"):
+                    ok_a, fail_a, errs_imp_a = importar_alumnos(filas_a)
+                st.success(f"✅ {ok_a} alumno(s) creados correctamente.")
+                if fail_a:
+                    st.error(f"❌ {fail_a} alumno(s) con error:")
+                    for e in errs_imp_a:
+                        st.markdown(f"- {e}")
+                if ok_a > 0:
+                    st.rerun()
+        elif not errores_a:
+            st.warning("El archivo no contiene filas con datos. Verifica que llenaste la hoja 'Alumnos'.")
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── Importar Docentes ──
+    st.markdown("<div class='tutoria-card'><h3>📚 Importar Docentes</h3>",
+                unsafe_allow_html=True)
+    archivo_docentes = st.file_uploader(
+        "Sube el Excel con docentes (hoja: Docentes)",
+        type=["xlsx"],
+        key="upload_docentes"
+    )
+
+    if archivo_docentes:
+        bytes_d = archivo_docentes.read()
+        filas_d, errores_d = leer_excel_docentes(bytes_d)
+
+        if errores_d:
+            st.error(f"Se encontraron {len(errores_d)} error(es) de validación:")
+            for err in errores_d:
+                st.markdown(f"- {err}")
+
+        if filas_d:
+            st.success(f"✅ {len(filas_d)} docente(s) listos para importar.")
+            with st.expander("👁 Vista previa de datos a importar"):
+                preview_d = [{
+                    "Nombre": f["nombre"],
+                    "Apellido": f["apellido"],
+                    "Departamento": f["departamento"],
+                    "Correo generado": f["correo"],
+                } for f in filas_d]
+                st.dataframe(preview_d, use_container_width=True)
+
+            if st.button("✅ Confirmar importación de docentes", type="primary",
+                         use_container_width=True, key="btn_imp_docentes"):
+                with st.spinner("Creando usuarios en Supabase…"):
+                    ok_d, fail_d, errs_imp_d = importar_docentes(filas_d)
+                st.success(f"✅ {ok_d} docente(s) creados correctamente.")
+                if fail_d:
+                    st.error(f"❌ {fail_d} docente(s) con error:")
+                    for e in errs_imp_d:
+                        st.markdown(f"- {e}")
+                if ok_d > 0:
+                    st.rerun()
+        elif not errores_d:
+            st.warning("El archivo no contiene filas con datos. Verifica que llenaste la hoja 'Docentes'.")
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
 
 # ══════════════════════════════════════════════════════════
 # TAB: MATERIAS POR DOCENTE
