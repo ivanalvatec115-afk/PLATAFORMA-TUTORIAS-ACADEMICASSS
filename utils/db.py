@@ -161,19 +161,35 @@ def get_disponibilidad_por_materia(materia_id: str) -> list[dict]:
         res = (sb.table("disponibilidad_docentes")
                  .select("*")
                  .eq("materia_id", materia_id)
-                 .eq("disponible", True)
                  .gte("fecha", date.today().isoformat())
                  .order("fecha").order("hora_inicio").execute())
-        slots = [s for s in (res.data or []) if (s.get("cupos", 8) - s.get("cupos_usados", 0)) > 0]
+        slots = res.data or []
+        resultado = []
         cache = {}
         for s in slots:
+            # Recontar cupos desde sesiones reales
+            reservas = (sb.table("sesiones_tutoria")
+                          .select("id")
+                          .eq("disponibilidad_id", s["id"])
+                          .neq("estado", "Cancelada")
+                          .execute())
+            usados = len(reservas.data or [])
+            libres = CUPOS_MAX - usados
+            if libres <= 0:
+                continue  # sin cupos, no mostrar
+
             did = s.get("docente_id", "")
             if did not in cache:
                 cache[did] = _get_nombre(did)
             info = cache[did]
             s["docente_nombre"] = f"{info.get('nombre','')} {info.get('apellido','')}".strip() or "Docente"
-            s["cupos_libres"]   = s.get("cupos", 8) - s.get("cupos_usados", 0)
-        return slots
+            s["cupos_usados"]   = usados
+            s["cupos"]          = CUPOS_MAX
+            s["cupos_libres"]   = libres
+            s["hora_inicio"]    = str(s.get("hora_inicio",""))[:5]
+            s["hora_fin"]       = str(s.get("hora_fin",""))[:5]
+            resultado.append(s)
+        return resultado
     except Exception as e:
         st.error(f"Error al obtener disponibilidad por materia: {e}")
         return []
@@ -198,6 +214,8 @@ def alumno_ya_reservo(alumno_id: str, disponibilidad_id: str) -> bool:
         return False
 
 
+CUPOS_MAX = 8  # Máximo fijo de alumnos por bloque
+
 def agendar_sesion(alumno_id: str, docente_id: str,
                    disponibilidad_id: str, fecha_hora: str,
                    materia: str, descripcion: str) -> bool:
@@ -208,18 +226,16 @@ def agendar_sesion(alumno_id: str, docente_id: str,
             st.error("Ya tienes una reserva activa en este horario.")
             return False
 
-        # Verificar cupos
-        slot = sb.table("disponibilidad_docentes")\
-                  .select("cupos, cupos_usados")\
-                  .eq("id", disponibilidad_id).single().execute()
-        if not slot.data:
-            st.error("El horario seleccionado no existe.")
-            return False
+        # Contar reservas activas reales (fuente de verdad: sesiones_tutoria)
+        reservas = (sb.table("sesiones_tutoria")
+                      .select("id")
+                      .eq("disponibilidad_id", disponibilidad_id)
+                      .neq("estado", "Cancelada")
+                      .execute())
+        cupos_usados = len(reservas.data or [])
 
-        cupos        = slot.data.get("cupos", 8)
-        cupos_usados = slot.data.get("cupos_usados", 0)
-        if cupos_usados >= cupos:
-            st.error("Este horario ya no tiene cupos disponibles.")
+        if cupos_usados >= CUPOS_MAX:
+            st.error(f"Este horario ya alcanzó el máximo de {CUPOS_MAX} alumnos.")
             return False
 
         sb.table("sesiones_tutoria").insert({
@@ -235,7 +251,8 @@ def agendar_sesion(alumno_id: str, docente_id: str,
         nuevo_usado = cupos_usados + 1
         sb.table("disponibilidad_docentes").update({
             "cupos_usados": nuevo_usado,
-            "disponible":   nuevo_usado < cupos,
+            "cupos":        CUPOS_MAX,
+            "disponible":   nuevo_usado < CUPOS_MAX,
         }).eq("id", disponibilidad_id).execute()
         return True
     except Exception as e:
@@ -244,22 +261,44 @@ def agendar_sesion(alumno_id: str, docente_id: str,
 
 
 def cancelar_sesion(sesion_id: str, disponibilidad_id: str | None) -> bool:
+    """Cancela UNA sesión de alumno y recalcula cupos desde la BD."""
     sb = get_supabase()
     try:
         sb.table("sesiones_tutoria").update({"estado": "Cancelada"}).eq("id", sesion_id).execute()
         if disponibilidad_id:
-            slot = sb.table("disponibilidad_docentes")\
-                      .select("cupos, cupos_usados")\
-                      .eq("id", disponibilidad_id).single().execute()
-            if slot.data:
-                nuevo_usado = max(0, slot.data.get("cupos_usados", 1) - 1)
-                sb.table("disponibilidad_docentes").update({
-                    "cupos_usados": nuevo_usado,
-                    "disponible":   True,
-                }).eq("id", disponibilidad_id).execute()
+            # Recontar reservas activas reales tras la cancelación
+            reservas = (sb.table("sesiones_tutoria")
+                          .select("id")
+                          .eq("disponibilidad_id", disponibilidad_id)
+                          .neq("estado", "Cancelada")
+                          .execute())
+            nuevo_usado = len(reservas.data or [])
+            sb.table("disponibilidad_docentes").update({
+                "cupos_usados": nuevo_usado,
+                "cupos":        CUPOS_MAX,
+                "disponible":   nuevo_usado < CUPOS_MAX,
+            }).eq("id", disponibilidad_id).execute()
         return True
     except Exception as e:
         st.error(f"Error al cancelar: {e}")
+        return False
+
+
+def cancelar_slot_docente(disponibilidad_id: str) -> bool:
+    """Cancela TODAS las sesiones de un slot (acción del docente) y libera el bloque."""
+    sb = get_supabase()
+    try:
+        # Cancelar todas las sesiones activas del slot
+        sb.table("sesiones_tutoria").update({"estado": "Cancelada"})          .eq("disponibilidad_id", disponibilidad_id)          .neq("estado", "Cancelada").execute()
+        # Resetear el slot a disponible con cupos en 0
+        sb.table("disponibilidad_docentes").update({
+            "cupos_usados": 0,
+            "cupos":        CUPOS_MAX,
+            "disponible":   True,
+        }).eq("id", disponibilidad_id).execute()
+        return True
+    except Exception as e:
+        st.error(f"Error al cancelar bloque: {e}")
         return False
 
 
@@ -267,7 +306,9 @@ def get_sesiones_alumno(alumno_id: str) -> list[dict]:
     sb = get_supabase()
     try:
         res = (sb.table("sesiones_tutoria")
-                 .select("*").eq("alumno_id", alumno_id)
+                 .select("id, alumno_id, docente_id, disponibilidad_id, fecha_hora, "
+                         "materia, descripcion, estado, asistencia, notas_docente, created_at")
+                 .eq("alumno_id", alumno_id)
                  .order("fecha_hora", desc=True).execute())
         return _enriquecer_sesiones_alumno(res.data or [])
     except Exception as e:
