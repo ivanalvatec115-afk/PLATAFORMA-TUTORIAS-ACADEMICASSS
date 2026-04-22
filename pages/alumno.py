@@ -220,3 +220,38 @@ with col_right:
         </table>""", unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
+
+# ── Descargar reporte ─────────────────────────────────────
+if sesiones:
+    with col_right:
+        st.markdown("<div class='tutoria-card'><h3>📥 Descargar mi reporte</h3>",
+                    unsafe_allow_html=True)
+        nombre_completo = f"{perfil['nombre']} {perfil['apellido']}"
+        col_xl, col_pdf = st.columns(2)
+        with col_xl:
+            try:
+                datos, fname = reporte_alumno_excel(sesiones, nombre_completo)
+                st.download_button(
+                    "⬇️ Excel",
+                    data=datos,
+                    file_name=fname,
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    key="dl_alumno_xl"
+                )
+            except Exception as e:
+                st.error(f"Error Excel: {e}")
+        with col_pdf:
+            try:
+                datos, fname = reporte_alumno_pdf(sesiones, nombre_completo)
+                st.download_button(
+                    "⬇️ PDF",
+                    data=datos,
+                    file_name=fname,
+                    mime="application/pdf",
+                    use_container_width=True,
+                    key="dl_alumno_pdf"
+                )
+            except Exception as e:
+                st.error(f"Error PDF: {e}")
+        st.markdown("</div>", unsafe_allow_html=True)
