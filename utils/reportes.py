@@ -203,7 +203,7 @@ def _pdf_base(titulo: str, columnas: list[str], filas: list[list],
 # ─────────────────────────────────────────────────────────
 
 def reporte_alumno_excel(sesiones: list[dict], nombre_alumno: str) -> tuple[bytes, str]:
-    cols  = ["Fecha y Hora", "Docente", "Materia", "Estado", "Asistencia", "Notas"]
+    cols  = ["Fecha y Hora", "Docente", "Materia", "Estado", "Asistencia"]
     filas = []
     for s in sesiones:
         asist = ("Sí" if s.get("asistencia") is True
@@ -214,7 +214,6 @@ def reporte_alumno_excel(sesiones: list[dict], nombre_alumno: str) -> tuple[byte
             s.get("materia","—"),
             s.get("estado","—"),
             asist,
-            s.get("notas_docente","—") or "—",
         ])
     titulo   = f"Historial de Tutorías — {nombre_alumno}"
     filename = f"historial_{nombre_alumno.replace(' ','_')}_{_hoy_file()}.xlsx"
@@ -240,7 +239,7 @@ def reporte_alumno_pdf(sesiones: list[dict], nombre_alumno: str) -> tuple[bytes,
 
 
 def reporte_docente_excel(sesiones: list[dict], nombre_docente: str) -> tuple[bytes, str]:
-    cols  = ["Fecha y Hora", "Alumno", "No. Control", "Materia", "Estado", "Asistencia", "Notas"]
+    cols  = ["Fecha y Hora", "Alumno", "No. Control", "Materia", "Estado", "Asistencia"]
     filas = []
     for s in sesiones:
         asist = ("Sí" if s.get("asistencia") is True
@@ -252,7 +251,6 @@ def reporte_docente_excel(sesiones: list[dict], nombre_docente: str) -> tuple[by
             s.get("materia","—"),
             s.get("estado","—"),
             asist,
-            s.get("notas_docente","—") or "—",
         ])
     titulo   = f"Historial de Tutorías — {nombre_docente}"
     filename = f"historial_{nombre_docente.replace(' ','_')}_{_hoy_file()}.xlsx"
