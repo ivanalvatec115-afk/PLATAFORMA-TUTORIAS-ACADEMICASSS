@@ -27,6 +27,12 @@ if get_current_rol() != "alumno":
 perfil = get_current_perfil()
 render_sidebar()
 
+# Inicializar session_state para confirmación de cancelación
+if "cancelar_sesion_id" not in st.session_state:
+    st.session_state["cancelar_sesion_id"] = None
+if "cancelar_disp_id" not in st.session_state:
+    st.session_state["cancelar_disp_id"] = None
+
 
 def fmt_fecha(iso_str):
     try:
@@ -45,7 +51,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# ── Métricas ─────────────────────────────────────────────
+# ── Cargar sesiones ───────────────────────────────────────
 sesiones    = get_sesiones_alumno(perfil["id"])
 total       = len(sesiones)
 programadas = sum(1 for s in sesiones if s["estado"] == "Programada")
@@ -63,8 +69,10 @@ st.markdown(f"""
 
 col_left, col_right = st.columns([1, 1.3], gap="large")
 
-# ── IZQUIERDA: Agendar ───────────────────────────────────
+# ── IZQUIERDA ─────────────────────────────────────────────
 with col_left:
+
+    # ── Agendar ──
     st.markdown("<div class='tutoria-card'><h3>➕ Agendar nueva sesión</h3>",
                 unsafe_allow_html=True)
 
@@ -78,7 +86,7 @@ with col_left:
     )
 
     if mat_sel_nombre:
-        mat_obj          = next((m for m in materias if m["nombre"] == mat_sel_nombre), None)
+        mat_obj           = next((m for m in materias if m["nombre"] == mat_sel_nombre), None)
         slots_disponibles = get_disponibilidad_por_materia(mat_obj["id"]) if mat_obj else []
 
         if not slots_disponibles:
@@ -88,7 +96,7 @@ with col_left:
             for s in slots_disponibles:
                 libres = s.get("cupos_libres", 0)
                 label  = (f"{s['docente_nombre']}  ·  {s['fecha']}  "
-                          f"{s['hora_inicio'][:5]}–{s['hora_fin'][:5]}  "
+                          f"{str(s['hora_inicio'])[:5]}–{str(s['hora_fin'])[:5]}  "
                           f"({libres}/{CUPOS_MAX} cupos libres)")
                 opciones_slot[label] = s
 
@@ -98,17 +106,17 @@ with col_left:
 
             descripcion = st.text_area("Descripción (opcional)",
                                        placeholder="Describe brevemente tu duda…",
-                                       height=80, key="desc_agendar")
+                                       height=70, key="desc_agendar")
 
             if st.button("✅ Solicitar tutoría", type="primary", use_container_width=True):
-                fecha_hora = f"{sel_slot['fecha']}T{sel_slot['hora_inicio']}"
+                fecha_hora = f"{sel_slot['fecha']}T{str(sel_slot['hora_inicio'])[:5]}"
                 ok = agendar_sesion(
-                    alumno_id=perfil["id"],
-                    docente_id=sel_slot["docente_id"],
-                    disponibilidad_id=sel_slot["id"],
-                    fecha_hora=fecha_hora,
-                    materia=mat_sel_nombre,
-                    descripcion=descripcion,
+                    alumno_id        = perfil["id"],
+                    docente_id       = sel_slot["docente_id"],
+                    disponibilidad_id= sel_slot["id"],
+                    fecha_hora       = fecha_hora,
+                    materia          = mat_sel_nombre,
+                    descripcion      = descripcion,
                 )
                 if ok:
                     st.success("✅ ¡Tutoría agendada correctamente!")
@@ -116,38 +124,59 @@ with col_left:
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # ── Cancelar sesión ──
+    # ── Cancelar ──
     programadas_list = [s for s in sesiones if s["estado"] == "Programada"]
     if programadas_list:
         st.markdown("<div class='tutoria-card'><h3>❌ Cancelar una sesión</h3>",
                     unsafe_allow_html=True)
-        opciones_cancel = {}
+
         for s in programadas_list:
-            label = (f"{fmt_fecha(s['fecha_hora'])} · "
-                     f"{s.get('materia','—')} · "
-                     f"{s.get('docente_nombre','—')}")
-            opciones_cancel[label] = s
+            fh  = fmt_fecha(s["fecha_hora"])
+            mat = s.get("materia", "—")
+            doc = s.get("docente_nombre", "—")
+            sid = s["id"]
+            did = s.get("disponibilidad_id")
 
-        sel_cancel = st.selectbox("Selecciona la sesión a cancelar",
-                                  list(opciones_cancel.keys()), key="cancel_sel")
-        ses_cancel = opciones_cancel[sel_cancel]
+            col_info, col_btn = st.columns([3, 1])
+            with col_info:
+                st.markdown(f"""
+                <div class="avail-item">
+                    <div>
+                        <strong>{mat}</strong><br>
+                        <small>📆 {fh} · 👨‍🏫 {doc}</small>
+                    </div>
+                </div>""", unsafe_allow_html=True)
+            with col_btn:
+                if st.button("Cancelar", key=f"cancel_btn_{sid}",
+                             use_container_width=True):
+                    st.session_state["cancelar_sesion_id"] = sid
+                    st.session_state["cancelar_disp_id"]   = did
 
-        st.markdown(f"""
-        <div class="avail-item">
-            <div>
-                <strong>{ses_cancel.get('materia','—')}</strong><br>
-                <small>📆 {fmt_fecha(ses_cancel['fecha_hora'])} · 
-                👨‍🏫 {ses_cancel.get('docente_nombre','—')}</small>
-            </div>
-        </div>""", unsafe_allow_html=True)
+        # Confirmación fuera del loop
+        if st.session_state["cancelar_sesion_id"]:
+            sid_conf = st.session_state["cancelar_sesion_id"]
+            did_conf = st.session_state["cancelar_disp_id"]
+            ses_conf = next((s for s in programadas_list if s["id"] == sid_conf), None)
 
-        if st.button("❌ Confirmar cancelación", use_container_width=True):
-            # Obtener disponibilidad_id directamente del dict de la sesión
-            disp_id = ses_cancel.get("disponibilidad_id")
-            ok = cancelar_sesion(ses_cancel["id"], disp_id)
-            if ok:
-                st.success("✅ Sesión cancelada. El cupo fue liberado.")
-                st.rerun()
+            if ses_conf:
+                st.warning(f"¿Confirmas cancelar la sesión de **{ses_conf.get('materia','—')}** "
+                           f"el {fmt_fecha(ses_conf['fecha_hora'])}?")
+                c1, c2 = st.columns(2)
+                with c1:
+                    if st.button("✅ Sí, cancelar", type="primary",
+                                 use_container_width=True, key="confirm_yes"):
+                        ok = cancelar_sesion(sid_conf, did_conf)
+                        if ok:
+                            st.session_state["cancelar_sesion_id"] = None
+                            st.session_state["cancelar_disp_id"]   = None
+                            st.success("✅ Sesión cancelada. El cupo fue liberado.")
+                            st.rerun()
+                with c2:
+                    if st.button("No, volver", use_container_width=True,
+                                 key="confirm_no"):
+                        st.session_state["cancelar_sesion_id"] = None
+                        st.session_state["cancelar_disp_id"]   = None
+                        st.rerun()
 
         st.markdown("</div>", unsafe_allow_html=True)
 
