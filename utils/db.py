@@ -80,7 +80,7 @@ def get_materias_docente(docente_id: str) -> list[dict]:
 
 
 def asignar_materia_docente(docente_id: str, materia_id: str) -> bool:
-    sb = get_supabase()
+    sb = get_supabase_admin()
     try:
         sb.table("docente_materias").insert({"docente_id": docente_id, "materia_id": materia_id}).execute()
         return True
@@ -90,7 +90,7 @@ def asignar_materia_docente(docente_id: str, materia_id: str) -> bool:
 
 
 def quitar_materia_docente(docente_id: str, materia_id: str) -> bool:
-    sb = get_supabase()
+    sb = get_supabase_admin()
     try:
         sb.table("docente_materias").delete().eq("docente_id", docente_id).eq("materia_id", materia_id).execute()
         return True
@@ -106,7 +106,7 @@ def quitar_materia_docente(docente_id: str, materia_id: str) -> bool:
 def agregar_disponibilidad(docente_id: str, fecha: date,
                            hora_inicio: time, hora_fin: time,
                            materia_id: str, cupos: int = 8) -> bool:
-    sb = get_supabase()
+    sb = get_supabase_admin()
     try:
         sb.table("disponibilidad_docentes").insert({
             "docente_id":   docente_id,
@@ -125,7 +125,7 @@ def agregar_disponibilidad(docente_id: str, fecha: date,
 
 
 def eliminar_disponibilidad(slot_id: str) -> bool:
-    sb = get_supabase()
+    sb = get_supabase_admin()
     try:
         sb.table("disponibilidad_docentes").delete().eq("id", slot_id).execute()
         return True
@@ -284,7 +284,7 @@ def cancelar_slot_docente(disponibilidad_id: str) -> bool:
     1. Marca todas las sesiones como Cancelada (quedan en historial de alumnos)
     2. ELIMINA el slot de disponibilidad para que no se pueda reservar más
     """
-    sb = get_supabase()
+    sb = get_supabase_admin()
     try:
         # 1. Marcar todas las sesiones activas como Cancelada (persisten en historial)
         sb.table("sesiones_tutoria").update({"estado": "Cancelada"})          .eq("disponibilidad_id", disponibilidad_id)          .neq("estado", "Cancelada").execute()
@@ -451,7 +451,7 @@ def get_todos_usuarios() -> list[dict]:
 
 
 def actualizar_usuario(user_id: str, datos: dict) -> bool:
-    sb = get_supabase()
+    sb = get_supabase_admin()
     try:
         sb.table("perfiles").update(datos).eq("id", user_id).execute()
         return True
