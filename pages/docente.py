@@ -140,54 +140,7 @@ with col_right:
         if not slots_prog:
             st.info("No tienes sesiones programadas próximas.")
         else:
-            st.caption(f"📋 {len(slots_prog)} bloque(s) programado(s)")
-
-            # Selector de bloque — permite navegar sin scroll infinito
-            opciones_prog = {}
-            for slot in slots_prog:
-                titulo_s = fmt_fecha_slot(slot["fecha"], slot["hora_inicio"], slot["hora_fin"])
-                mat_s    = slot.get("materia_nombre","—")
-                usados_s = len(slot["alumnos"])
-                label_s  = f"📆 {titulo_s}  ·  {mat_s}  ·  👥 {usados_s}/{CUPOS_MAX}"
-                opciones_prog[label_s] = slot
-
-            sel_prog = st.selectbox("Selecciona un bloque para ver detalles",
-                                    list(opciones_prog.keys()),
-                                    key="sel_bloque_prog")
-            st.divider()
-
-            # Mostrar resumen de TODOS los bloques en tabla compacta
-            filas_res = ""
-            for slot in slots_prog:
-                t = fmt_fecha_slot(slot["fecha"], slot["hora_inicio"], slot["hora_fin"])
-                m = slot.get("materia_nombre","—")
-                u = len(slot["alumnos"])
-                todos_r = (u > 0 and all(
-                    a.get("estado") in ("Completada","No asistió","Cancelada")
-                    for a in slot["alumnos"]
-                ))
-                icono = "✅" if todos_r else ("⬜" if u == 0 else "🔵")
-                filas_res += f"""<tr>
-                    <td>{t}</td><td>{m}</td>
-                    <td style="text-align:center;">{u}/{CUPOS_MAX}</td>
-                    <td style="text-align:center;">{icono}</td>
-                </tr>"""
-
-            st.markdown(f"""
-            <div style="max-height:200px; overflow-y:auto; border-radius:10px;
-                        border:1px solid #cdd8e3; margin-bottom:1rem;">
-            <table class="hist-table" style="margin:0;">
-                <thead><tr>
-                    <th>Fecha y hora</th><th>Materia</th>
-                    <th style="text-align:center;">Alumnos</th>
-                    <th style="text-align:center;">Estado</th>
-                </tr></thead>
-                <tbody>{filas_res}</tbody>
-            </table>
-            </div>""", unsafe_allow_html=True)
-
-            # Detalle del bloque seleccionado
-            slot = opciones_prog[sel_prog]
+            st.caption(f"📋 {len(slots_prog)} bloque(s) — expande cada uno para ver detalles")
             for slot in slots_prog:
                 titulo  = fmt_fecha_slot(slot["fecha"], slot["hora_inicio"], slot["hora_fin"])
                 mat     = slot.get("materia_nombre", "—")
