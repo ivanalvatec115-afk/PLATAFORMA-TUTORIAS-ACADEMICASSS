@@ -349,6 +349,12 @@ div.login-brand > p,
     border-radius: 10px;
 }
 
+
+/* ── Ocultar navegación automática de páginas de Streamlit ── */
+[data-testid="stSidebarNav"] {
+    display: none !important;
+}
+
 </style>
 """
 
