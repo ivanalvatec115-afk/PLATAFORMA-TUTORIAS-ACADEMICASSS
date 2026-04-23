@@ -102,31 +102,6 @@ with col_left:
                     st.success("Bloque registrado.")
                     st.rerun()
 
-    st.markdown(f"<b style='color:#0d2137; font-size:0.82rem;'>Mis bloques (cupo fijo: {CUPOS_MAX} alumnos)</b>",
-                unsafe_allow_html=True)
-    slots_todos = get_disponibilidad_docente(perfil["id"])
-    if not slots_todos:
-        st.caption("Aún no has registrado disponibilidad.")
-    else:
-        for s in slots_todos:
-            usados     = s.get("cupos_usados", 0)
-            libres     = CUPOS_MAX - usados
-            estado_txt = f"✅ {libres}/{CUPOS_MAX} libres" if libres > 0 else "🔒 Lleno"
-            col_i, col_b = st.columns([3, 1])
-            with col_i:
-                st.markdown(f"""
-                <div class="avail-item">
-                    <div>
-                        <strong>{s['fecha']} · {s.get('materia_nombre','—')}</strong><br>
-                        <small>{s['hora_inicio'][:5]} – {s['hora_fin'][:5]} &nbsp; {estado_txt}</small>
-                    </div>
-                </div>""", unsafe_allow_html=True)
-            with col_b:
-                if usados == 0:
-                    if st.button("🗑", key=f"del_{s['id']}", help="Eliminar bloque vacío"):
-                        eliminar_disponibilidad(s["id"])
-                        st.rerun()
-
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ── DERECHA: Tabs ─────────────────────────────────────────
