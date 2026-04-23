@@ -320,6 +320,35 @@ hr { border-color: var(--border) !important; }
 .stCaption, [data-testid="stCaptionContainer"] * { color: var(--muted) !important; font-weight: 600 !important; }
 .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4 { color: var(--navy) !important; font-weight: 800 !important; }
 .stMarkdown p { color: var(--text) !important; font-weight: 500; }
+
+/* ── Fuerza blanco en el párrafo del login brand (override Streamlit) ── */
+div.login-brand p,
+div.login-brand > p,
+.login-brand p,
+[data-testid="stMarkdownContainer"] .login-brand p,
+.stMarkdown .login-brand p {
+    color: #ffffff !important;
+}
+
+
+/* ── Scroll en tabs con muchos expanders ── */
+.stTabs [data-baseweb="tab-panel"] {
+    max-height: 520px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+.stTabs [data-baseweb="tab-panel"]::-webkit-scrollbar {
+    width: 6px;
+}
+.stTabs [data-baseweb="tab-panel"]::-webkit-scrollbar-track {
+    background: #f0f4ff;
+    border-radius: 10px;
+}
+.stTabs [data-baseweb="tab-panel"]::-webkit-scrollbar-thumb {
+    background: #1a6fa8;
+    border-radius: 10px;
+}
+
 </style>
 """
 
